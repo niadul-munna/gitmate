@@ -1,0 +1,46 @@
+name: Bug report
+description: GitMate showed or wrote something wrong
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please **redact tokens, emails and private paths** from anything you paste.
+        Security problems: use the private "Report a vulnerability" form instead (see SECURITY.md).
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you run or click, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: The smallest set of commands that reproduces it, ideally starting from a fresh temporary repository.
+      placeholder: |
+        git init /tmp/repro && cd /tmp/repro
+        gitmate whoami
+    validations:
+      required: true
+  - type: textarea
+    id: whoami
+    attributes:
+      label: Output of `gitmate whoami --json` (redacted)
+      render: json
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Output of `gitmate --version` and `git --version`, and your OS.
+      placeholder: gitmate 0.1.0, git 2.43.0, Ubuntu 24.04
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where
+      options: [CLI, Desktop app, Both]
+    validations:
+      required: true
