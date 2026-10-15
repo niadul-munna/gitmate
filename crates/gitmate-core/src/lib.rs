@@ -18,6 +18,7 @@ pub mod plan;
 pub mod profile;
 pub mod remote;
 pub mod repo;
+pub mod report;
 pub mod rules;
 pub mod ssh;
 
