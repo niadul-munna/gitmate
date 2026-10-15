@@ -16,6 +16,7 @@ pub mod plan;
 pub mod profile;
 pub mod remote;
 pub mod repo;
+pub mod rules;
 pub mod ssh;
 
 pub use error::{Error, Result};
