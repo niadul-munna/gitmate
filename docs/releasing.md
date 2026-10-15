@@ -6,15 +6,13 @@ a maintainer attaches them to a GitHub release by hand.
 
 ## Before the first public release
 
-These are deliberately left unset in the repository and must be decided by
-the maintainers:
+Decisions the maintainers make once, before the first public release:
 
-- [ ] Add `repository = "https://github.com/<owner>/<repo>"` to
-      `[workspace.package]` in `Cargo.toml`.
-- [ ] Confirm the bundle identifier in
-      `apps/desktop/src-tauri/tauri.conf.json` (currently
-      `dev.gitmate.desktop`). It must be a reverse-DNS name you control and
-      should never change after release.
+- [x] `repository` in `[workspace.package]` in `Cargo.toml` is
+      `https://github.com/niadul-munna/gitmate`.
+- [x] The bundle identifier in `apps/desktop/src-tauri/tauri.conf.json` is
+      `io.github.niadul-munna.gitmate`. It must never change after release:
+      the app's data directory is named after it.
 - [ ] Fill in the enforcement contact in `CODE_OF_CONDUCT.md` (search for
       `TODO`).
 - [ ] Enable *Private vulnerability reporting* in the GitHub repository

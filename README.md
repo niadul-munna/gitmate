@@ -36,7 +36,7 @@ There are no prebuilt downloads yet. Build from source:
 
 ```sh
 # Requirements: Rust 1.90+ (rustup), Git 2.31+
-git clone <this repository> gitmate && cd gitmate
+git clone https://github.com/niadul-munna/gitmate.git && cd gitmate
 cargo install --path crates/gitmate-cli   # installs `gitmate` into ~/.cargo/bin
 ```
 
