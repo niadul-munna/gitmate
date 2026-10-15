@@ -1,0 +1,25 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "The main window may call GitMate's own commands and open the native folder picker. No shell, filesystem, opener or core window/event APIs are granted.",
+  "windows": ["main"],
+  "permissions": [
+    "allow-app-info",
+    "allow-list-profiles",
+    "allow-get-profile",
+    "allow-create-profile",
+    "allow-update-profile",
+    "allow-delete-profile",
+    "allow-inspect-repository",
+    "allow-run-doctor",
+    "allow-list-rules",
+    "allow-list-history",
+    "allow-plan-assign",
+    "allow-plan-add-rule",
+    "allow-plan-remove-rule",
+    "allow-plan-undo",
+    "allow-apply-plan",
+    "allow-discard-plan",
+    "dialog:allow-open"
+  ]
+}

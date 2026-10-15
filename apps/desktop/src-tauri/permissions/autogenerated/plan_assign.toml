@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-plan-assign"
+description = "Enables the plan_assign command without any pre-configured scope."
+commands.allow = ["plan_assign"]
+
+[[permission]]
+identifier = "deny-plan-assign"
+description = "Denies the plan_assign command without any pre-configured scope."
+commands.deny = ["plan_assign"]

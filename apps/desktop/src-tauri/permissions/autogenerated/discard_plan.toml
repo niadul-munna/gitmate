@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-discard-plan"
+description = "Enables the discard_plan command without any pre-configured scope."
+commands.allow = ["discard_plan"]
+
+[[permission]]
+identifier = "deny-discard-plan"
+description = "Denies the discard_plan command without any pre-configured scope."
+commands.deny = ["discard_plan"]

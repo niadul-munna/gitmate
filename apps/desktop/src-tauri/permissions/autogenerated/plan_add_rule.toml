@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-plan-add-rule"
+description = "Enables the plan_add_rule command without any pre-configured scope."
+commands.allow = ["plan_add_rule"]
+
+[[permission]]
+identifier = "deny-plan-add-rule"
+description = "Denies the plan_add_rule command without any pre-configured scope."
+commands.deny = ["plan_add_rule"]

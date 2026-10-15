@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-list-rules"
+description = "Enables the list_rules command without any pre-configured scope."
+commands.allow = ["list_rules"]
+
+[[permission]]
+identifier = "deny-list-rules"
+description = "Denies the list_rules command without any pre-configured scope."
+commands.deny = ["list_rules"]

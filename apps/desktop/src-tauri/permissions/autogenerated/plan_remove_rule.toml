@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-plan-remove-rule"
+description = "Enables the plan_remove_rule command without any pre-configured scope."
+commands.allow = ["plan_remove_rule"]
+
+[[permission]]
+identifier = "deny-plan-remove-rule"
+description = "Denies the plan_remove_rule command without any pre-configured scope."
+commands.deny = ["plan_remove_rule"]

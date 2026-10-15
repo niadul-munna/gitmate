@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-plan-undo"
+description = "Enables the plan_undo command without any pre-configured scope."
+commands.allow = ["plan_undo"]
+
+[[permission]]
+identifier = "deny-plan-undo"
+description = "Denies the plan_undo command without any pre-configured scope."
+commands.deny = ["plan_undo"]
