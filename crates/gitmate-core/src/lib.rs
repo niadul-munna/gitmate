@@ -6,6 +6,7 @@
 //! files.
 
 pub mod config;
+pub mod doctor;
 pub mod error;
 pub mod fsutil;
 pub mod git;
