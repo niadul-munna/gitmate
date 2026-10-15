@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+/*
+ * GitMate design tokens.
+ * Base palette from the product brief. `muted-text` is a slightly darker
+ * shade of `muted` used for small text: #737973 on #FAFAF8 is 4.26:1, below
+ * WCAG AA for body-size text; #636963 is 5.4:1.
+ */
+@theme {
+  --color-canvas: #fafaf8;
+  --color-sidebar: #f2f3f0;
+  --color-ink: #252a28;
+  --color-muted: #737973;
+  --color-muted-text: #636963;
+  --color-accent: #526a59;
+  --color-accent-strong: #45594b;
+  --color-accent-soft: #e6ece7;
+  --color-line: #dee2dc;
+  --color-line-strong: #c7ccc5;
+  --color-danger: #a03a2b;
+  --color-danger-soft: #f7e9e6;
+  --color-warning: #85570f;
+  --color-warning-soft: #f6eedd;
+
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, "SFMono-Regular", monospace;
+
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 0.875rem;
+  --text-base--line-height: 1.375rem;
+  --text-lg: 1rem;
+  --text-lg--line-height: 1.5rem;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.75rem;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "ss01", "tnum";
+  }
+
+  /* One visible, consistent focus indicator for every interactive element. */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+
+  ::selection {
+    background: var(--color-accent-soft);
+  }
+
+  dialog::backdrop {
+    background: rgb(37 42 40 / 0.28);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  .mono {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    letter-spacing: -0.01em;
+  }
+}
