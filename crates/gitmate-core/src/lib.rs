@@ -21,6 +21,9 @@ pub mod remote;
 pub mod repo;
 pub mod report;
 pub mod rules;
+mod service;
 pub mod ssh;
+mod transaction;
 
 pub use error::{Error, Result};
+pub use service::{ApplyOutcome, GitMate, ProfileSaved, ProfileUsage};
