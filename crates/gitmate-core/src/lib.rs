@@ -9,8 +9,10 @@ pub mod config;
 pub mod error;
 pub mod fsutil;
 pub mod git;
+pub mod includes;
 pub mod paths;
 pub mod plan;
 pub mod profile;
+pub mod ssh;
 
 pub use error::{Error, Result};
