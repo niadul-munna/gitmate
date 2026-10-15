@@ -5,7 +5,9 @@
 //! truth for configuration precedence; this crate never parses Git config
 //! files.
 
+pub mod config;
 pub mod error;
+pub mod git;
 pub mod plan;
 
 pub use error::{Error, Result};
