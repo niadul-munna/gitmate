@@ -1,0 +1,26 @@
+# Example ~/.config/gitmate/profiles.toml
+#
+# Normally you manage this file with `gitmate profile add/edit/remove`
+# or the desktop app. Unknown keys are rejected, so typos are caught.
+# SSH keys are referenced by path only; GitMate never reads key contents.
+
+version = 1
+
+[[profile]]
+id = "work"
+name = "Ada Lovelace"
+email = "ada@acme.example"
+label = "Acme (work GitHub)"
+ssh_key = "~/.ssh/id_ed25519_acme"
+
+[[profile]]
+id = "personal"
+name = "Ada Lovelace"
+email = "12345+ada@users.noreply.github.com"
+label = "Personal GitHub"
+ssh_key = "~/.ssh/id_ed25519_personal"
+
+[[profile]]
+id = "client-x"
+name = "Ada Lovelace"
+email = "ada@client-x.example"
