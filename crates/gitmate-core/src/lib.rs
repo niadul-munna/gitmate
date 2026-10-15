@@ -14,6 +14,7 @@ pub mod includes;
 pub mod paths;
 pub mod plan;
 pub mod profile;
+pub mod remote;
 pub mod repo;
 pub mod ssh;
 
