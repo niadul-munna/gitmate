@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/gitmate-core"]
+members = ["crates/gitmate-core", "crates/gitmate-cli"]
 
 [workspace.package]
 version = "0.1.0"

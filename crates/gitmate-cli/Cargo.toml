@@ -1,0 +1,24 @@
+[package]
+name = "gitmate-cli"
+description = "GitMate command-line interface"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "gitmate"
+path = "src/main.rs"
+
+[dependencies]
+gitmate-core.workspace = true
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true
