@@ -28,7 +28,7 @@ use crate::render::Style;
     after_help = "Environment:\n  \
                   GITMATE_CONFIG_DIR  Override where profiles are stored\n  \
                   GITMATE_STATE_DIR   Override where history and backups are stored\n  \
-                  NO_COLOR               Disable colored output"
+                  NO_COLOR            Disable colored output"
 )]
 struct Cli {
     #[command(subcommand)]

@@ -121,6 +121,29 @@ fn help_lists_every_command() {
 }
 
 #[test]
+fn help_environment_descriptions_line_up() {
+    let env = Env::new();
+    let help = env.ok(&env.home, &["--help"]);
+    let block: Vec<&str> = help
+        .lines()
+        .skip_while(|l| *l != "Environment:")
+        .skip(1)
+        .take_while(|l| !l.trim().is_empty())
+        .collect();
+    assert_eq!(block.len(), 3, "{help}");
+    // Column where the description starts: after the indent, the variable
+    // name and the padding.
+    let starts: Vec<usize> = block
+        .iter()
+        .map(|line| {
+            let name_end = line.len() - line.trim_start().len() + line.trim_start().find(' ').unwrap();
+            line.len() - line[name_end..].trim_start().len()
+        })
+        .collect();
+    assert!(starts.iter().all(|s| *s == starts[0]), "{block:#?}");
+}
+
+#[test]
 fn profile_lifecycle_with_json() {
     let env = Env::new();
     add_work_profile(&env);
