@@ -14,17 +14,17 @@ jobs:
   linux:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install Tauri system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential file \
             libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
       - uses: dtolnay/rust-toolchain@stable
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           package_json_file: apps/desktop/package.json
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: pnpm
@@ -41,7 +41,7 @@ jobs:
           cp target/release/gitmate "dist/gitmate-linux-x86_64"
           cp target/release/bundle/deb/*.deb target/release/bundle/appimage/*.AppImage dist/
           cd dist && sha256sum * > SHA256SUMS
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: gitmate-linux-x86_64
           path: dist/
