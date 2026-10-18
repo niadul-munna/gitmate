@@ -19,7 +19,7 @@ use gitmate_core::plan::{AssignOptions, Plan};
 use gitmate_core::profile::{Profile, ProfileInput};
 use gitmate_core::report::RepoReport;
 use gitmate_core::rules::Rule;
-use gitmate_core::{ApplyOutcome, Error, GitMate, ProfileSaved, ProfileUsage};
+use gitmate_core::{ApplyOutcome, Error, GitMate, ProfileSaved, ProfileUsage, SshKeyChoices};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -146,6 +146,13 @@ async fn list_profiles(state: State<'_, AppState>) -> CmdResult<Vec<Profile>> {
 #[tauri::command]
 async fn get_profile(state: State<'_, AppState>, id: String) -> CmdResult<ProfileUsage> {
     with_core(&state, move |core| core.profile_usage(&id)).await
+}
+
+/// SSH private keys in `~/.ssh` (found by name; never opened), to fill the
+/// profile form's key field.
+#[tauri::command]
+async fn list_ssh_keys(state: State<'_, AppState>) -> CmdResult<SshKeyChoices> {
+    with_core(&state, |core| core.ssh_key_choices()).await
 }
 
 #[derive(Deserialize)]
@@ -320,6 +327,7 @@ pub fn run() {
             app_info,
             list_profiles,
             get_profile,
+            list_ssh_keys,
             create_profile,
             update_profile,
             delete_profile,

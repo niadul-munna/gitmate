@@ -7,6 +7,7 @@
     "allow-app-info",
     "allow-list-profiles",
     "allow-get-profile",
+    "allow-list-ssh-keys",
     "allow-create-profile",
     "allow-update-profile",
     "allow-delete-profile",

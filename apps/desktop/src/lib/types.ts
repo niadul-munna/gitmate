@@ -32,6 +32,13 @@ export interface Rule {
   position: number;
 }
 
+/** SSH private keys found in ~/.ssh, by name only. */
+export interface SshKeyChoices {
+  /** The ~/.ssh directory, where the file picker starts. */
+  dir: string;
+  keys: { path: string; used_by: string[] }[];
+}
+
 export interface ProfileUsage {
   profile: Profile;
   rules: Rule[];

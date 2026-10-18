@@ -1,7 +1,7 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 import { api, errorMessage, isCommandError } from "../lib/api";
-import type { Profile, ProfileSaved } from "../lib/types";
+import type { Profile, ProfileSaved, SshKeyChoices } from "../lib/types";
 import { Button, ErrorNotice, Field } from "./ui";
 
 type FieldName = "id" | "name" | "email" | "label" | "ssh_key";
@@ -49,13 +49,26 @@ export function ProfileForm({
   const [errors, setErrors] = useState<Errors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [sshKeys, setSshKeys] = useState<SshKeyChoices | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    // Only a convenience: without the list, the field and picker still work.
+    api.listSshKeys().then(
+      (found) => live && setSshKeys(found),
+      () => {},
+    );
+    return () => {
+      live = false;
+    };
+  }, []);
 
   const set = (field: FieldName) => (event: { target: { value: string } }) =>
     setValues((v) => ({ ...v, [field]: event.target.value }));
 
   const pickKey = async () => {
     try {
-      const picked = await api.pickFile("Choose the SSH private key");
+      const picked = await api.pickFile("Choose the SSH private key", sshKeys?.dir);
       if (picked) setValues((v) => ({ ...v, ssh_key: picked }));
     } catch (e) {
       setFormError(errorMessage(e));
@@ -147,6 +160,20 @@ export function ProfileForm({
         className="font-mono text-[0.78rem]"
         trailing={<Button onClick={pickKey}>Choose…</Button>}
       />
+      {sshKeys && sshKeys.keys.length > 0 && (
+        <div className="-mt-2 flex flex-wrap items-center gap-1.5" role="group" aria-label="Keys found in ~/.ssh">
+          <span className="text-sm text-muted-text">Keys in ~/.ssh:</span>
+          {sshKeys.keys.map((key) => {
+            const others = key.used_by.filter((id) => id !== profile?.id);
+            return (
+              <Button key={key.path} size="sm" onClick={() => setValues((v) => ({ ...v, ssh_key: key.path }))}>
+                <span className="font-mono">{key.path.split("/").pop()}</span>
+                {others.length > 0 && <span className="text-muted-text"> · used by {others.join(", ")}</span>}
+              </Button>
+            );
+          })}
+        </div>
+      )}
 
       {formError && <ErrorNotice message={formError} />}
 

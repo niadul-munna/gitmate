@@ -16,6 +16,7 @@ import type {
   ProfileSaved,
   ProfileUsage,
   RepoReport,
+  SshKeyChoices,
   Rule,
 } from "./types";
 
@@ -40,6 +41,7 @@ export const api = {
   updateProfile: (id: string, profile: ProfileFields) =>
     invoke<ProfileSaved>("update_profile", { id, profile }),
   deleteProfile: (id: string) => invoke<null>("delete_profile", { id }),
+  listSshKeys: () => invoke<SshKeyChoices>("list_ssh_keys"),
 
   inspectRepository: (path: string) => invoke<RepoReport>("inspect_repository", { path }),
   runDoctor: (path: string | null) => invoke<DoctorReport>("run_doctor", { path }),
@@ -62,8 +64,8 @@ export const api = {
   },
 
   /** Native file picker. Only the chosen path is used; the file is not read. */
-  pickFile: async (title: string): Promise<string | null> => {
-    const picked = await open({ directory: false, multiple: false, title });
+  pickFile: async (title: string, defaultPath?: string): Promise<string | null> => {
+    const picked = await open({ directory: false, multiple: false, title, defaultPath });
     return typeof picked === "string" ? picked : null;
   },
 };

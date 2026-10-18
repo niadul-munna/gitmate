@@ -62,6 +62,22 @@ pub struct ProfileUsage {
     pub ssh_key: Option<ssh::KeyCheck>,
 }
 
+/// SSH keys a profile could use, found in `~/.ssh`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SshKeyChoices {
+    /// The `~/.ssh` directory, where a file picker should start.
+    pub dir: PathBuf,
+    pub keys: Vec<SshKeyChoice>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SshKeyChoice {
+    /// The key's path as a profile stores it, e.g. `~/.ssh/id_ed25519`.
+    pub path: PathBuf,
+    /// Profiles that already use this key.
+    pub used_by: Vec<String>,
+}
+
 impl GitMate {
     pub fn new(git: Git, paths: AppPaths) -> Self {
         GitMate {
@@ -239,6 +255,29 @@ impl GitMate {
         profiles[index] = profile.clone();
         self.store().save(&profiles)?;
         Ok(ProfileSaved { profile, warnings })
+    }
+
+    /// Private keys in `~/.ssh` and the profiles already using each one.
+    pub fn ssh_key_choices(&self) -> Result<SshKeyChoices> {
+        let home = &self.paths.home;
+        let dir = home.join(".ssh");
+        let profiles = self.profiles()?;
+        let keys = ssh::find_private_keys(&dir)
+            .into_iter()
+            .map(|key| SshKeyChoice {
+                used_by: profiles
+                    .iter()
+                    .filter(|p| {
+                        p.ssh_key.as_ref().is_some_and(|k| {
+                            crate::paths::normalize_lexically(&crate::paths::expand_tilde(k, home)) == key
+                        })
+                    })
+                    .map(|p| p.id.clone())
+                    .collect(),
+                path: PathBuf::from(self.paths.display(&key)),
+            })
+            .collect();
+        Ok(SshKeyChoices { dir, keys })
     }
 
     /// Remove a profile. Refused while a rule still includes it.

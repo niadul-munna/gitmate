@@ -110,3 +110,90 @@ fn update_and_remove() {
         Err(Error::ProfileNotFound(_))
     ));
 }
+
+/// Create `~/.ssh/<name>` (mode 0600) in the sandbox.
+fn ssh_file(sb: &Sandbox, name: &str) -> PathBuf {
+    let path = sb.home.join(".ssh").join(name);
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(&path, b"placeholder, never read").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+    }
+    path
+}
+
+#[test]
+fn ssh_key_choices_are_private_keys_that_have_a_public_key() {
+    let sb = Sandbox::new();
+    for name in [
+        "id_work",
+        "id_work.pub",
+        "id_ed25519",
+        "id_ed25519.pub",
+        "known_hosts",
+        "config",
+        "stray_private",
+        "orphan.pub",
+    ] {
+        ssh_file(&sb, name);
+    }
+    std::fs::create_dir_all(sb.home.join(".ssh/nested")).unwrap();
+    ssh_file(&sb, "nested.pub");
+
+    let choices = sb.app().ssh_key_choices().unwrap();
+
+    assert_eq!(choices.dir, sb.home.join(".ssh"));
+    let paths: Vec<PathBuf> = choices.keys.iter().map(|k| k.path.clone()).collect();
+    assert_eq!(
+        paths,
+        vec![
+            PathBuf::from("~/.ssh/id_ed25519"),
+            PathBuf::from("~/.ssh/id_work")
+        ]
+    );
+}
+
+#[test]
+fn ssh_key_choices_show_which_profiles_use_each_key() {
+    let sb = Sandbox::new();
+    let work_key = ssh_file(&sb, "id_work");
+    ssh_file(&sb, "id_work.pub");
+    ssh_file(&sb, "id_ed25519");
+    ssh_file(&sb, "id_ed25519.pub");
+    let app = sb.app();
+    // The same key, once as an absolute path and once with `~/`.
+    let mut work = profile("work", "work@acme.example");
+    work.ssh_key = Some(work_key);
+    app.add_profile(work).unwrap();
+    let mut oss = profile("oss", "oss@example.org");
+    oss.ssh_key = Some(PathBuf::from("~/.ssh/id_work"));
+    app.add_profile(oss).unwrap();
+
+    let choices = app.ssh_key_choices().unwrap();
+
+    let used: Vec<(String, Vec<String>)> = choices
+        .keys
+        .iter()
+        .map(|k| (k.path.display().to_string(), k.used_by.clone()))
+        .collect();
+    assert_eq!(
+        used,
+        vec![
+            ("~/.ssh/id_ed25519".to_string(), vec![]),
+            (
+                "~/.ssh/id_work".to_string(),
+                vec!["work".to_string(), "oss".to_string()]
+            ),
+        ]
+    );
+}
+
+#[test]
+fn ssh_key_choices_are_empty_without_an_ssh_directory() {
+    let sb = Sandbox::new();
+    let choices = sb.app().ssh_key_choices().unwrap();
+    assert!(choices.keys.is_empty());
+    assert_eq!(choices.dir, sb.home.join(".ssh"));
+}

@@ -26,4 +26,4 @@ pub mod ssh;
 mod transaction;
 
 pub use error::{Error, Result};
-pub use service::{ApplyOutcome, GitMate, ProfileSaved, ProfileUsage};
+pub use service::{ApplyOutcome, GitMate, ProfileSaved, ProfileUsage, SshKeyChoice, SshKeyChoices};

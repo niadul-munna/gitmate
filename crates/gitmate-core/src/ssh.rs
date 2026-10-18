@@ -63,6 +63,26 @@ impl KeyCheck {
     }
 }
 
+/// Private keys in `dir`, recognised by the `<name>.pub` file `ssh-keygen`
+/// writes next to each one. Only file names and metadata are read, never
+/// key contents. A missing or unreadable directory yields an empty list.
+pub fn find_private_keys(dir: &Path) -> Vec<PathBuf> {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return Vec::new();
+    };
+    let mut keys: Vec<PathBuf> = entries
+        .filter_map(|entry| entry.ok().map(|e| e.path()))
+        .filter(|path| path.extension().is_none_or(|ext| ext != "pub") && path.is_file())
+        .filter(|path| {
+            let mut public = path.clone().into_os_string();
+            public.push(".pub");
+            Path::new(&public).is_file()
+        })
+        .collect();
+    keys.sort();
+    keys
+}
+
 /// Inspect a private key path using metadata only.
 pub fn check_key(configured: &Path, home: &Path) -> KeyCheck {
     let path = crate::paths::expand_tilde(configured, home);

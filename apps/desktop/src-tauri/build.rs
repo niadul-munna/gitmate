@@ -5,6 +5,7 @@ const COMMANDS: &[&str] = &[
     "app_info",
     "list_profiles",
     "get_profile",
+    "list_ssh_keys",
     "create_profile",
     "update_profile",
     "delete_profile",

@@ -1,3 +1,4 @@
+import { open } from "@tauri-apps/plugin-dialog";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -13,7 +14,7 @@ describe("ProfileForm", () => {
     expect(screen.getByLabelText("Profile id")).toHaveAccessibleDescription(/required/i);
     expect(screen.getByLabelText("Name")).toHaveAttribute("aria-invalid", "true");
     expect(screen.getByLabelText("Email")).toHaveAttribute("aria-invalid", "true");
-    expect(backend).not.toHaveBeenCalled();
+    expect(backend).not.toHaveBeenCalledWith("create_profile", expect.anything());
   });
 
   it("creates a profile and shows backend field errors next to the field", async () => {
@@ -55,5 +56,41 @@ describe("ProfileForm", () => {
       profile: { name: "Ada Lovelace", email: "new@acme.example", label: "Acme (work GitHub)", ssh_key: "~/.ssh/id_acme" },
     });
     expect(onSaved).toHaveBeenCalled();
+  });
+
+  const sshKeys = {
+    dir: "/home/ada/.ssh",
+    keys: [
+      { path: "~/.ssh/id_acme", used_by: ["work"] },
+      { path: "~/.ssh/id_ed25519", used_by: [] },
+    ],
+  };
+
+  it("fills the key field with one click on a key found in ~/.ssh", async () => {
+    mockBackend({ list_ssh_keys: sshKeys });
+    render(<ProfileForm onSaved={() => {}} onCancel={() => {}} />);
+    await userEvent.click(await screen.findByRole("button", { name: /^id_ed25519/ }));
+    expect(screen.getByLabelText(/SSH private key/)).toHaveValue("~/.ssh/id_ed25519");
+  });
+
+  it("says which other profile already uses a key", async () => {
+    mockBackend({ list_ssh_keys: sshKeys });
+    render(<ProfileForm onSaved={() => {}} onCancel={() => {}} />);
+    expect(await screen.findByRole("button", { name: /^id_acme/ })).toHaveTextContent(/used by work/);
+    expect(screen.getByRole("button", { name: /^id_ed25519/ })).not.toHaveTextContent(/used by/);
+  });
+
+  it("does not call the profile being edited another user of its own key", async () => {
+    mockBackend({ list_ssh_keys: sshKeys });
+    render(<ProfileForm profile={workProfile} onSaved={() => {}} onCancel={() => {}} />);
+    expect(await screen.findByRole("button", { name: /^id_acme/ })).not.toHaveTextContent(/used by/);
+  });
+
+  it("opens the file picker inside ~/.ssh", async () => {
+    mockBackend({ list_ssh_keys: sshKeys });
+    render(<ProfileForm onSaved={() => {}} onCancel={() => {}} />);
+    await screen.findByRole("button", { name: /^id_acme/ });
+    await userEvent.click(screen.getByRole("button", { name: "Choose…" }));
+    expect(vi.mocked(open)).toHaveBeenCalledWith(expect.objectContaining({ defaultPath: "/home/ada/.ssh" }));
   });
 });
