@@ -13,9 +13,9 @@ Decisions the maintainers make once, before the first public release:
 - [x] The bundle identifier in `apps/desktop/src-tauri/tauri.conf.json` is
       `io.github.niadul-munna.gitmate`. It must never change after release:
       the app's data directory is named after it.
-- [ ] Fill in the enforcement contact in `CODE_OF_CONDUCT.md` (search for
-      `TODO`).
-- [ ] Enable *Private vulnerability reporting* in the GitHub repository
+- [x] The enforcement contact in `CODE_OF_CONDUCT.md` is
+      niadulislammunna@gmail.com.
+- [x] *Private vulnerability reporting* is enabled in the GitHub repository
       settings (SECURITY.md points to it).
 
 ## Each release
