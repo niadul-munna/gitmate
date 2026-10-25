@@ -52,12 +52,10 @@ impl Sandbox {
             root.path().starts_with(std::env::temp_dir()),
             "sandbox HOME must be under the temp dir"
         );
-        // Git reports paths with symlinks resolved, and macOS reaches its
-        // temp dir through one (/var -> /private/var).
-        #[cfg(unix)]
-        let base = root.path().canonicalize().expect("resolve temp dir");
-        #[cfg(not(unix))]
-        let base = root.path().to_path_buf();
+        // Git reports real paths: macOS reaches its temp dir through a
+        // symlink (/var -> /private/var), and Windows names it with 8.3 short
+        // names (C:\Users\RUNNER~1).
+        let base = gitmate_core::paths::canonicalize(root.path()).expect("resolve temp dir");
         let home = base.join("home dir");
         let config_dir = home.join(".config/gitmate");
         let state_dir = home.join(".local/state/gitmate");

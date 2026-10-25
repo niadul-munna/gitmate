@@ -2,6 +2,8 @@
 
 mod common;
 
+use std::path::Path;
+
 use common::Sandbox;
 use gitmate_core::Error;
 use gitmate_core::profile::Profile;
@@ -382,17 +384,19 @@ fn removing_a_rule_leaves_other_values_of_the_same_key_in_place() {
     let repo = sb.repo("work/app");
     let team = sb.home.join("team.inc");
     std::fs::write(&team, "[user]\n\temail = team@example.com\n").unwrap();
-    let condition = gitmate_core::rules::condition_for(&std::fs::canonicalize(&dir).unwrap());
+    let condition = gitmate_core::rules::condition_for(&gitmate_core::paths::canonicalize(&dir).unwrap());
     let managed = sb.paths.include_file("work");
+    // A backslash starts an escape in a Git config value.
+    let slashed = |p: &Path| p.to_string_lossy().replace('\\', "/");
     let head = format!(
         "[includeIf \"{condition}\"]\n\tpath = {}\n[user]\n\tname = Global Person\n\temail = global@example.com\n",
-        team.display()
+        slashed(&team)
     );
     std::fs::write(
         sb.global_config(),
         format!(
             "{head}[includeIf \"{condition}\"]\n\tpath = {}\n",
-            managed.display()
+            slashed(&managed)
         ),
     )
     .unwrap();

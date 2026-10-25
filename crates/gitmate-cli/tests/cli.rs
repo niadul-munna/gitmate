@@ -27,9 +27,12 @@ const STRIPPED: &[&str] = &[
 impl Env {
     fn new() -> Env {
         let root = tempfile::Builder::new().prefix("gitmate cli ").tempdir().unwrap();
-        let home = root.path().join("home");
+        assert!(root.path().starts_with(std::env::temp_dir()));
+        // The real path, as Git reports it (see the core tests' Sandbox).
+        let home = gitmate_core::paths::canonicalize(root.path())
+            .unwrap()
+            .join("home");
         std::fs::create_dir_all(&home).unwrap();
-        assert!(home.starts_with(std::env::temp_dir()));
         Env { _root: root, home }
     }
 
