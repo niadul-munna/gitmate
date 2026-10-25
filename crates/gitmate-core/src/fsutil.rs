@@ -106,7 +106,10 @@ pub fn atomic_replace_with(dest: &Path, fill: impl FnOnce(&Path) -> Result<()>) 
     let result = (|| {
         create_private_file(&tmp)?;
         fill(&tmp)?;
-        File::open(&tmp)
+        // Windows only flushes a file opened for writing.
+        OpenOptions::new()
+            .write(true)
+            .open(&tmp)
             .and_then(|f| f.sync_all())
             .map_err(|e| Error::io("could not sync", &tmp, e))?;
         fs::rename(&tmp, dest).map_err(|e| Error::io("could not replace", dest, e))?;
@@ -237,6 +240,19 @@ mod tests {
             ensure_private_dir(&open),
             Err(Error::InvalidPath { .. })
         ));
+    }
+
+    #[test]
+    fn atomic_replace_with_syncs_and_replaces_content() {
+        let dir = tempfile::tempdir().unwrap();
+        let dest = dir.path().join("work.gitconfig");
+        fs::write(&dest, b"old").unwrap();
+        atomic_replace_with(&dest, |tmp| {
+            fs::write(tmp, b"new").map_err(|e| Error::io("could not write", tmp, e))
+        })
+        .unwrap();
+        assert_eq!(fs::read(&dest).unwrap(), b"new");
+        assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 1);
     }
 
     #[test]
