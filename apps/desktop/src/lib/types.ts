@@ -9,6 +9,7 @@ export interface Profile {
   signing_key?: string;
   gpg_format?: string;
   sign_commits?: boolean;
+  remote_patterns?: string[];
 }
 
 export type KeyStatus =

@@ -34,7 +34,7 @@ behaviour.
 
 | Path (Linux default) | Content |
 | --- | --- |
-| `$XDG_CONFIG_HOME/gitmate/profiles.toml` | Profiles (name, email, label, optional SSH key *path*, signing settings) |
+| `$XDG_CONFIG_HOME/gitmate/profiles.toml` | Profiles (name, email, label, optional SSH key *path*, signing settings, remote patterns) |
 | `$XDG_CONFIG_HOME/gitmate/includes/<id>.gitconfig` | Generated include file per profile, written with `git config --file` |
 | `$XDG_STATE_HOME/gitmate/operations/<op>.toml` | Operation journal |
 | `$XDG_STATE_HOME/gitmate/backups/<op>/` | Copies of affected config files (0600) |
@@ -54,7 +54,7 @@ written to a fresh temporary file in the same directory and renamed into place.
 | `includes` | Generating per-profile include files |
 | `repo` | Repository discovery (worktrees, bare, nested, safe.directory) |
 | `identity` | Effective identity, per-key origins, environment overrides |
-| `remote`, `ssh` | Remote transport classification, SSH key checks, `core.sshCommand` quoting, `ssh -G` |
+| `remote`, `ssh` | Remote transport classification, remote patterns, SSH key checks, `core.sshCommand` quoting, `ssh -G` |
 | `rules` | Reading and planning `includeIf "gitdir:..."` rules |
 | `plan` | `Plan`, `ConfigChange`, conflicts, warnings |
 | `transaction`, `journal` | Locking, apply with verification, automatic revert on failure, undo |

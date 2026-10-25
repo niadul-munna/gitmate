@@ -462,3 +462,36 @@ fn profile_add_with_signing_key_and_use_sign() {
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(stdout.contains("no signing key"), "{stdout}");
 }
+
+#[test]
+fn doctor_reports_remote_profile_mismatch() {
+    let env = Env::new();
+    env.ok(
+        &env.home,
+        &[
+            "profile",
+            "add",
+            "work",
+            "--name",
+            "Work Person",
+            "--email",
+            "work@acme.example",
+            "--remote-pattern",
+            "github.com:acme",
+        ],
+    );
+
+    let repo = env.repo("code/acme-repo");
+    env.git(&repo, &["config", "user.name", "Personal Person"]);
+    env.git(&repo, &["config", "user.email", "personal@home.example"]);
+    env.git(
+        &repo,
+        &["remote", "add", "origin", "git@github.com:acme/acme-repo.git"],
+    );
+
+    let doc = env.run(&repo, &["doctor"]);
+    let stdout = String::from_utf8_lossy(&doc.stdout);
+    assert!(stdout.contains("remote_profile_mismatch"), "{stdout}");
+    assert!(stdout.contains("matches profile 'work'"), "{stdout}");
+    assert!(stdout.contains("gitmate use work"), "{stdout}");
+}

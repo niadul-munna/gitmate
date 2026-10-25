@@ -10,7 +10,7 @@ use crate::journal::{OperationRecord, OperationStatus};
 use crate::paths::AppPaths;
 use crate::plan::Action;
 use crate::profile::Profile;
-use crate::remote::{Remote, Transport};
+use crate::remote::{self, Remote, RemoteUrl, Transport};
 use crate::repo::RepoInfo;
 use crate::rules::Rule;
 use crate::ssh::{self, KeyCheck};
@@ -146,6 +146,18 @@ fn describe_source(source: &Source, paths: &AppPaths) -> String {
         },
         Source::AutoDetected => "Git's guess from your system user and host name".to_string(),
     }
+}
+
+/// The first of `profile`'s remote patterns that matches one of `remote`'s
+/// fetch URLs, with that URL.
+fn remote_match<'a>(profile: &'a Profile, remote: &'a Remote) -> Option<(&'a str, &'a RemoteUrl)> {
+    remote.fetch.iter().find_map(|url| {
+        profile
+            .remote_patterns
+            .iter()
+            .find(|pattern| remote::matches_remote_pattern(pattern, &url.display))
+            .map(|pattern| (pattern.as_str(), url))
+    })
 }
 
 pub(crate) fn build(input: ReportInput<'_>) -> RepoReport {
@@ -499,6 +511,45 @@ pub(crate) fn build(input: ReportInput<'_>) -> RepoReport {
                     .hint("Remove them from the URL and use a credential helper instead"),
                 );
                 break;
+            }
+        }
+    }
+
+    // Remote patterns: a remote that belongs to a profile other than the
+    // author's. An explicit `gitmate use` of the author's profile wins.
+    let assigned_author = matches!(
+        &expected,
+        Some(Expected { profile, reason: ExpectedReason::Assignment { .. } })
+            if profile_match.as_ref().is_some_and(|m| &m.id == profile)
+    );
+    if let Some(author) = identity.author.as_ref().filter(|_| !assigned_author) {
+        for remote in &remotes {
+            let author_matches = profile_match.as_ref().is_some_and(|m| {
+                profiles
+                    .iter()
+                    .any(|p| p.id == m.id && remote_match(p, remote).is_some())
+            });
+            if author_matches {
+                continue;
+            }
+            if let Some((profile, (pattern, url))) = profiles
+                .iter()
+                .find_map(|p| remote_match(p, remote).map(|m| (p, m)))
+            {
+                findings.push(
+                    Finding::new(
+                        Severity::Warning,
+                        "remote_profile_mismatch",
+                        format!(
+                            "Remote '{}' ({}) matches profile '{}' (pattern '{pattern}'), but commits here are authored as {} <{}>",
+                            remote.name, url.display, profile.id, author.name, author.email
+                        ),
+                    )
+                    .hint(format!(
+                        "Run `gitmate use {}` to assign it to this repository",
+                        profile.id
+                    )),
+                );
             }
         }
     }

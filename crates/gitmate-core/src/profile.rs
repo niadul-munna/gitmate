@@ -11,6 +11,7 @@ pub const MAX_ID_LEN: usize = 32;
 const MAX_NAME_LEN: usize = 128;
 const MAX_EMAIL_LEN: usize = 254;
 const MAX_LABEL_LEN: usize = 120;
+const MAX_PATTERN_LEN: usize = 256;
 
 /// A Git identity profile.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -39,6 +40,11 @@ pub struct Profile {
     /// Whether folder rules also set `commit.gpgsign = true`.
     #[serde(default, skip_serializing_if = "is_false")]
     pub sign_commits: bool,
+    /// Remote URLs that belong to this profile: a case-insensitive substring,
+    /// or a whole-URL glob when it contains `*` or `?`. Used for diagnostics
+    /// only; never written to Git config.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub remote_patterns: Vec<String>,
 }
 
 fn is_false(value: &bool) -> bool {
@@ -60,6 +66,8 @@ pub struct ProfileInput {
     pub gpg_format: Option<String>,
     #[serde(default)]
     pub sign_commits: bool,
+    #[serde(default)]
+    pub remote_patterns: Vec<String>,
 }
 
 impl Profile {
@@ -82,6 +90,12 @@ impl Profile {
                 .map(|f| f.trim().to_lowercase())
                 .filter(|f| !f.is_empty()),
             sign_commits: input.sign_commits,
+            remote_patterns: input
+                .remote_patterns
+                .into_iter()
+                .map(|p| p.trim().to_string())
+                .filter(|p| !p.is_empty())
+                .collect(),
         }
     }
 
@@ -97,6 +111,7 @@ impl Profile {
             signing_key: self.signing_key.clone(),
             gpg_format: self.gpg_format.clone(),
             sign_commits: self.sign_commits,
+            remote_patterns: self.remote_patterns.clone(),
         }
     }
 
@@ -207,6 +222,18 @@ fn validate_gpg_format(format: &str) -> Option<String> {
     None
 }
 
+fn validate_remote_patterns(patterns: &[String]) -> Option<String> {
+    if patterns.iter().any(|p| p.trim().is_empty()) {
+        Some("must not be empty".into())
+    } else if patterns.iter().any(|p| p.len() > MAX_PATTERN_LEN) {
+        Some(format!("must be at most {MAX_PATTERN_LEN} characters each"))
+    } else if patterns.iter().any(|p| has_control(p)) {
+        Some("must not contain line breaks or control characters".into())
+    } else {
+        None
+    }
+}
+
 /// Validate a profile's fields without touching the filesystem.
 pub fn validate(profile: &Profile) -> Vec<FieldError> {
     let mut errors = Vec::new();
@@ -238,6 +265,10 @@ pub fn validate(profile: &Profile) -> Vec<FieldError> {
     push(
         "gpg_format",
         profile.gpg_format.as_deref().and_then(validate_gpg_format),
+    );
+    push(
+        "remote_patterns",
+        validate_remote_patterns(&profile.remote_patterns),
     );
     errors
 }
@@ -333,6 +364,7 @@ mod tests {
             signing_key: None,
             gpg_format: None,
             sign_commits: false,
+            remote_patterns: Vec::new(),
         }
     }
 
@@ -400,7 +432,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_bad_signing_settings() {
+    fn rejects_bad_signing_settings_and_remote_patterns() {
         let mut p = profile("a", "A", "a@b.c");
         p.gpg_format = Some("pgp".into());
         assert_eq!(fields(validate(&p)), vec!["gpg_format"]);
@@ -408,6 +440,9 @@ mod tests {
         p.signing_key = Some("key\nid".into());
         assert_eq!(fields(validate(&p)), vec!["signing_key"]);
         p.signing_key = Some("~/.ssh/id_a.pub".into());
+        p.remote_patterns = vec!["github.com:acme/".into(), "\u{1b}[31mred".into()];
+        assert_eq!(fields(validate(&p)), vec!["remote_patterns"]);
+        p.remote_patterns.pop();
         assert!(validate(&p).is_empty());
     }
 
@@ -438,6 +473,7 @@ mod tests {
             signing_key: Some("~/.ssh/id_acme.pub".into()),
             gpg_format: Some("ssh".into()),
             sign_commits: true,
+            remote_patterns: vec!["github.com:acme/".into()],
             ..profile("work", "Ada", "ada@acme.example")
         };
         assert_eq!(Profile::from_input(&p.id, p.to_input()), p);

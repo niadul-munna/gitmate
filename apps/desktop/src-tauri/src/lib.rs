@@ -179,13 +179,14 @@ async fn create_profile(state: State<'_, AppState>, profile: NewProfile) -> CmdR
             signing_key: None,
             gpg_format: None,
             sign_commits: false,
+            remote_patterns: Vec::new(),
         })
     })
     .await
 }
 
-/// The fields the profile form edits. Signing settings are not in the form,
-/// so an edit keeps their stored values.
+/// The fields the profile form edits. Signing settings and remote patterns
+/// are not in the form, so an edit keeps their stored values.
 #[derive(Deserialize)]
 struct EditProfile {
     name: String,

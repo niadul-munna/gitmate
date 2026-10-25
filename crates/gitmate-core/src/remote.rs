@@ -202,9 +202,75 @@ pub fn list_remotes(git: &Git, repo_dir: &Path) -> Result<Vec<Remote>> {
     Ok(remotes)
 }
 
+/// Whether a remote URL matches a profile's pattern: a case-insensitive
+/// substring, or a whole-URL glob when the pattern contains `*` or `?`.
+pub fn matches_remote_pattern(pattern: &str, url: &str) -> bool {
+    let pattern = pattern.trim();
+    if pattern.is_empty() {
+        return false;
+    }
+    if pattern.contains('*') || pattern.contains('?') {
+        glob_match(pattern, url)
+    } else {
+        url.to_ascii_lowercase().contains(&pattern.to_ascii_lowercase())
+    }
+}
+
+fn glob_match(pattern: &str, text: &str) -> bool {
+    let p_bytes = pattern.as_bytes();
+    let t_bytes = text.as_bytes();
+    let mut p = 0;
+    let mut t = 0;
+    let mut star = None;
+    let mut match_idx = 0;
+
+    while t < t_bytes.len() {
+        if p < p_bytes.len() && (p_bytes[p] == b'?' || p_bytes[p].eq_ignore_ascii_case(&t_bytes[t])) {
+            p += 1;
+            t += 1;
+        } else if p < p_bytes.len() && p_bytes[p] == b'*' {
+            star = Some(p);
+            match_idx = t;
+            p += 1;
+        } else if let Some(star_pos) = star {
+            p = star_pos + 1;
+            match_idx += 1;
+            t = match_idx;
+        } else {
+            return false;
+        }
+    }
+
+    while p < p_bytes.len() && p_bytes[p] == b'*' {
+        p += 1;
+    }
+
+    p == p_bytes.len()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn matches_patterns() {
+        assert!(matches_remote_pattern(
+            "github.com:acme",
+            "git@github.com:acme/repo.git"
+        ));
+        assert!(matches_remote_pattern(
+            "*github.com:acme/*",
+            "git@github.com:acme/repo.git"
+        ));
+        assert!(matches_remote_pattern(
+            "gitlab.company.com",
+            "https://gitlab.company.com/team/r.git"
+        ));
+        assert!(!matches_remote_pattern(
+            "gitlab.company.com",
+            "git@github.com:personal/r.git"
+        ));
+    }
 
     #[test]
     fn classifies_scp_like_ssh() {

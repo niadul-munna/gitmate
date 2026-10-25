@@ -108,6 +108,13 @@ gitmate profile edit work --signing-key ~/.ssh/id_ed25519_acme.pub --gpg-format 
 gitmate use work --sign
 ```
 
+Tell GitMate which remotes belong to a profile. `whoami` and `doctor` then
+warn when a repository's remote says *work* but its commits say *personal*:
+
+```sh
+gitmate profile edit work --remote-pattern github.com:acme/
+```
+
 Show the active profile in your shell prompt:
 
 ```sh
@@ -144,9 +151,9 @@ gitmate undo <operation>  # a specific one
 
 | Command | Purpose |
 | --- | --- |
-| `profile add <id> --name --email [--label] [--ssh-key] [--signing-key] [--gpg-format] [--sign-commits]` | Create a profile |
+| `profile add <id> --name --email [--label] [--ssh-key] [--signing-key] [--gpg-format] [--sign-commits] [--remote-pattern]` | Create a profile |
 | `profile list` / `profile show <id>` | List profiles / show one with its rules and repositories |
-| `profile edit <id> [--name] [--email] [--label\|--clear-label] [--ssh-key\|--clear-ssh-key] [--signing-key\|--clear-signing-key] [--gpg-format\|--clear-gpg-format] [--sign-commits\|--no-sign-commits]` | Change a profile; folder rules pick up the change |
+| `profile edit <id> [--name] [--email] [--label\|--clear-label] [--ssh-key\|--clear-ssh-key] [--signing-key\|--clear-signing-key] [--gpg-format\|--clear-gpg-format] [--sign-commits\|--no-sign-commits] [--remote-pattern\|--clear-remote-patterns]` | Change a profile; folder rules pick up the change |
 | `profile remove <id>` | Delete a profile (refused while a rule uses it) |
 | `whoami [path] [--short]` | Effective identity, its source, matching profile, SSH and remotes |
 | `prompt [path] [--format] [--fallback]` | One line for a shell prompt; `--format` takes `{profile}`, `{name}`, `{email}` |
@@ -222,8 +229,10 @@ exactly what GitMate writes into Git config files.
 ## Known limitations
 
 * Linux only is verified. macOS and Windows code paths exist but are untested.
-* The desktop app does not show or edit signing settings yet. Editing a
-  profile there keeps them.
+* Remote patterns only inform `whoami` and `doctor`; they never change Git
+  configuration by themselves.
+* The desktop app does not show or edit signing settings or remote patterns
+  yet. Editing a profile there keeps them.
 * Rules are `gitdir:` rules only; `onbranch:` and `hasconfig:` includes are
   listed but not managed.
 * New folder rules are written to the global config file Git writes with

@@ -402,6 +402,9 @@ pub fn profile_usage(paths: &AppPaths, usage: &ProfileUsage, style: Style) {
     if p.sign_commits {
         row(style, "Sign commits", "yes, in folder rules");
     }
+    if !p.remote_patterns.is_empty() {
+        row(style, "Remotes", p.remote_patterns.join(", "));
+    }
     row(style, "Include", paths.display(&paths.include_file(&p.id)));
     if usage.rules.is_empty() {
         row(style, "Rules", style.dim("none"));
@@ -443,6 +446,18 @@ pub fn profile_diff(paths: &AppPaths, old: &Profile, new: &Profile, rules: &[Rul
     show("signing", opt(&old.signing_key), opt(&new.signing_key));
     show("format", opt(&old.gpg_format), opt(&new.gpg_format));
     show("sign", old.sign_commits.to_string(), new.sign_commits.to_string());
+    let patterns = |v: &[String]| {
+        if v.is_empty() {
+            "(none)".into()
+        } else {
+            v.join(", ")
+        }
+    };
+    show(
+        "remotes",
+        patterns(&old.remote_patterns),
+        patterns(&new.remote_patterns),
+    );
     if !rules.is_empty() && old != new {
         println!(
             "\n  Repositories under {} pick up the new values immediately ({} is regenerated).",

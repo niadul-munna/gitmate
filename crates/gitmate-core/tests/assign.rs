@@ -2,7 +2,7 @@
 
 mod common;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use common::Sandbox;
 use gitmate_core::Error;
@@ -19,6 +19,7 @@ fn profile(id: &str, name: &str, email: &str) -> Profile {
         signing_key: None,
         gpg_format: None,
         sign_commits: false,
+        remote_patterns: Vec::new(),
     }
 }
 
@@ -409,4 +410,61 @@ fn assign_with_sign_option_pins_signing_keys() {
     );
     assert_eq!(sb.git_in(&repo, &["config", "--local", "gpg.format"]), "ssh");
     assert_eq!(sb.git_in(&repo, &["config", "--local", "commit.gpgsign"]), "true");
+}
+
+fn remote_mismatches(sb: &Sandbox, repo: &Path) -> Vec<String> {
+    sb.app()
+        .inspect(repo)
+        .unwrap()
+        .findings
+        .into_iter()
+        .filter(|f| f.code == "remote_profile_mismatch")
+        .map(|f| f.message)
+        .collect()
+}
+
+/// A profile whose remote patterns cover `git@github.com:acme/...` twice over.
+fn add_acme_profile(sb: &Sandbox) {
+    let mut acme = profile("acme", "Acme Person", "me@acme-corp.example");
+    acme.remote_patterns = vec!["github.com:acme/".into(), "*ACME*".into()];
+    sb.app().add_profile(acme).unwrap();
+}
+
+#[test]
+fn remote_pattern_flags_a_repository_authored_as_someone_else_once() {
+    let (sb, repo) = setup();
+    add_acme_profile(&sb);
+    sb.git_in(&repo, &["remote", "add", "origin", "git@github.com:acme/app.git"]);
+
+    let found = remote_mismatches(&sb, &repo);
+    assert_eq!(found.len(), 1, "one finding per remote: {found:?}");
+    assert!(found[0].contains("profile 'acme'"), "{}", found[0]);
+    assert!(found[0].contains("global@example.com"), "{}", found[0]);
+
+    // Authored as the profile the remote belongs to: nothing to report.
+    sb.git_in(&repo, &["config", "user.email", "me@acme-corp.example"]);
+    assert!(remote_mismatches(&sb, &repo).is_empty());
+}
+
+#[test]
+fn remote_pattern_is_quiet_when_the_author_is_one_of_several_matches() {
+    let (sb, repo) = setup();
+    add_acme_profile(&sb);
+    let mut work = sb.app().profile("work").unwrap();
+    work.remote_patterns = vec!["github.com".into()];
+    sb.app().update_profile("work", work.to_input()).unwrap();
+    sb.git_in(&repo, &["remote", "add", "origin", "git@github.com:acme/app.git"]);
+    sb.git_in(&repo, &["config", "user.email", "work@acme.example"]);
+    assert!(remote_mismatches(&sb, &repo).is_empty());
+}
+
+#[test]
+fn an_explicit_assignment_wins_over_a_remote_pattern() {
+    let (sb, repo) = setup();
+    add_acme_profile(&sb);
+    sb.git_in(&repo, &["remote", "add", "origin", "git@github.com:acme/app.git"]);
+    let app = sb.app();
+    app.apply(&app.plan_assign(&repo, "work", AssignOptions::default()).unwrap())
+        .unwrap();
+    assert!(remote_mismatches(&sb, &repo).is_empty());
 }

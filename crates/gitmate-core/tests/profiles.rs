@@ -18,6 +18,7 @@ fn profile(id: &str, email: &str) -> Profile {
         signing_key: None,
         gpg_format: None,
         sign_commits: false,
+        remote_patterns: Vec::new(),
     }
 }
 
@@ -101,6 +102,7 @@ fn update_and_remove() {
             signing_key: None,
             gpg_format: None,
             sign_commits: false,
+            remote_patterns: Vec::new(),
         },
     )
     .unwrap();
@@ -217,6 +219,7 @@ fn profiles_with_signing_key_generate_include_entries() {
         signing_key: Some("~/.ssh/id_ed25519.pub".into()),
         gpg_format: Some("ssh".into()),
         sign_commits: true,
+        remote_patterns: Vec::new(),
     })
     .unwrap();
 

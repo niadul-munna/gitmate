@@ -17,6 +17,8 @@ ssh_key = "~/.ssh/id_ed25519_acme"
 signing_key = "~/.ssh/id_ed25519_acme.pub"
 gpg_format = "ssh"
 sign_commits = true
+# Optional: remotes that belong to this profile, for diagnostics.
+remote_patterns = ["github.com:acme/"]
 
 [[profile]]
 id = "personal"

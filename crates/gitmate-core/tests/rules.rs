@@ -16,6 +16,7 @@ fn profile(id: &str, email: &str) -> Profile {
         signing_key: None,
         gpg_format: None,
         sign_commits: false,
+        remote_patterns: Vec::new(),
     }
 }
 

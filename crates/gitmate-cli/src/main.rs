@@ -142,6 +142,10 @@ enum ProfileCommand {
         /// Folder rules for this profile also set commit.gpgsign = true
         #[arg(long)]
         sign_commits: bool,
+        /// Remote URLs that belong to this profile: a substring such as
+        /// github.com:acme/, or a whole-URL glob with * and ? (repeatable)
+        #[arg(long = "remote-pattern", value_name = "PATTERN", value_delimiter = ',')]
+        remote_patterns: Vec<String>,
     },
     /// List profiles
     List {
@@ -181,6 +185,16 @@ enum ProfileCommand {
         sign_commits: bool,
         #[arg(long)]
         no_sign_commits: bool,
+        /// Replaces the profile's remote patterns
+        #[arg(
+            long = "remote-pattern",
+            value_name = "PATTERN",
+            value_delimiter = ',',
+            conflicts_with = "clear_remote_patterns"
+        )]
+        remote_patterns: Option<Vec<String>>,
+        #[arg(long)]
+        clear_remote_patterns: bool,
         #[command(flatten)]
         apply: ApplyFlags,
     },
@@ -379,6 +393,7 @@ fn profile_command(app: &GitMate, cmd: ProfileCommand, style: Style) -> CliResul
             signing_key,
             gpg_format,
             sign_commits,
+            remote_patterns,
         } => {
             let saved = app
                 .add_profile(Profile {
@@ -390,6 +405,7 @@ fn profile_command(app: &GitMate, cmd: ProfileCommand, style: Style) -> CliResul
                     signing_key,
                     gpg_format,
                     sign_commits,
+                    remote_patterns,
                 })
                 .map_err(|e| fail(e, false))?;
             println!("Created profile '{}'.", saved.profile.id);
@@ -434,6 +450,8 @@ fn profile_command(app: &GitMate, cmd: ProfileCommand, style: Style) -> CliResul
             clear_gpg_format,
             sign_commits,
             no_sign_commits,
+            remote_patterns,
+            clear_remote_patterns,
             apply,
         } => {
             let usage = app.profile_usage(&id).map_err(|e| fail(e, false))?;
@@ -462,6 +480,11 @@ fn profile_command(app: &GitMate, cmd: ProfileCommand, style: Style) -> CliResul
                     gpg_format.or_else(|| old.gpg_format.clone())
                 },
                 sign_commits: (sign_commits || old.sign_commits) && !no_sign_commits,
+                remote_patterns: if clear_remote_patterns {
+                    Vec::new()
+                } else {
+                    remote_patterns.unwrap_or_else(|| old.remote_patterns.clone())
+                },
             };
             let new = Profile::from_input(&id, input.clone());
             render::profile_diff(app.paths(), &old, &new, &usage.rules, style);

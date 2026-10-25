@@ -27,6 +27,7 @@ fn setup() -> (Sandbox, PathBuf) {
             signing_key: None,
             gpg_format: None,
             sign_commits: false,
+            remote_patterns: Vec::new(),
         })
         .unwrap();
     (sb, repo)
@@ -342,6 +343,7 @@ fn undone_later_operations_do_not_block_undo() {
         signing_key: None,
         gpg_format: None,
         sign_commits: false,
+        remote_patterns: Vec::new(),
     })
     .unwrap();
     let first = assign(&sb, &repo, "work");
