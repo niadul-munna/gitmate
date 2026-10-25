@@ -39,6 +39,10 @@ patch versions and credited in the release notes unless you prefer otherwise.
 * **Owned by GitMate:** `profiles.toml`, generated include files (a profile's
   name, email and, if set, `core.sshCommand` and signing settings), the
   operation journal and backups, all created `0600` in `0700` directories.
+  Windows has no such modes; there these files inherit the permissions of
+  the folder they are in (by default under `%APPDATA%` and
+  `%LOCALAPPDATA%`, which by default only your account, administrators and
+  the system can open).
 * **Written only on request, outside Git config:** `hooks/pre-commit` in a
   repository's git directory (`gitmate hook install`). It is a fixed script
   that runs `gitmate hook check`, written `0755`, not journaled. GitMate
