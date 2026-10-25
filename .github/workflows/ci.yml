@@ -44,13 +44,13 @@ jobs:
       - run: cargo fmt --all --check
         if: matrix.os == 'Linux'
       - run: cargo clippy --all-targets -- -D warnings
-      - run: cargo test
+      - run: cargo test --no-fail-fast
       - name: Tests must not touch the runner's real Git config
         run: |
           case "${{ matrix.os }}" in
             Linux) dir="$HOME/.config/gitmate" ;;
             macOS) dir="$HOME/Library/Application Support/GitMate" ;;
-            Windows) dir="$APPDATA/GitMate" ;;
+            Windows) dir="$(cygpath -u "$APPDATA")/GitMate" ;;
           esac
           test ! -e "$dir" && ! git config --global --get-regexp '^includeif\.' | grep -q gitmate
 
