@@ -99,6 +99,12 @@ gitmate use work
 gitmate use work --ssh
 ```
 
+Show the active profile in your shell prompt:
+
+```sh
+PS1='$(gitmate prompt --format "[{profile}] ")'"$PS1"   # bash; silent outside repositories
+```
+
 Find problems, such as a repository whose identity does not match the profile
 you expect:
 
@@ -133,7 +139,8 @@ gitmate undo <operation>  # a specific one
 | `profile list` / `profile show <id>` | List profiles / show one with its rules and repositories |
 | `profile edit <id> [--name] [--email] [--label\|--clear-label] [--ssh-key\|--clear-ssh-key]` | Change a profile; folder rules pick up the change |
 | `profile remove <id>` | Delete a profile (refused while a rule uses it) |
-| `whoami [path]` | Effective identity, its source, matching profile, SSH and remotes |
+| `whoami [path] [--short]` | Effective identity, its source, matching profile, SSH and remotes |
+| `prompt [path] [--format] [--fallback]` | One line for a shell prompt; `--format` takes `{profile}`, `{name}`, `{email}` |
 | `use <profile> [--repo path] [--ssh]` | Assign a profile to a repository |
 | `rules add <dir> <profile>` / `rules list` / `rules remove <dir>` | Folder rules (`includeIf "gitdir:…"`) |
 | `doctor [path] [--ssh-config]` | Diagnostics. `--ssh-config` also runs `ssh -G` for SSH remotes (local only, never connects) |

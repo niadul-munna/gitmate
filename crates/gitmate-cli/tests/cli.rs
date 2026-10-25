@@ -111,7 +111,9 @@ fn add_work_profile(env: &Env) {
 fn help_lists_every_command() {
     let env = Env::new();
     let help = env.ok(&env.home, &["--help"]);
-    for cmd in ["profile", "whoami", "use", "rules", "doctor", "history", "undo"] {
+    for cmd in [
+        "profile", "whoami", "use", "rules", "doctor", "history", "undo", "prompt",
+    ] {
         assert!(help.contains(cmd), "missing {cmd} in help:\n{help}");
     }
     let profile_help = env.ok(&env.home, &["profile", "--help"]);
@@ -334,4 +336,89 @@ fn errors_are_readable() {
 
     let out = env.run(&plain, &["profile", "show", "missing"]);
     assert!(String::from_utf8_lossy(&out.stderr).contains("no profile named 'missing'"));
+}
+
+#[test]
+fn prompt_command() {
+    let env = Env::new();
+    let plain = env.home.join("plain");
+    std::fs::create_dir_all(&plain).unwrap();
+    add_work_profile(&env);
+
+    // Outside repository: silent by default, or outputs fallback
+    assert_eq!(env.ok(&plain, &["prompt"]), "");
+    assert_eq!(env.ok(&plain, &["prompt", "--fallback", "none"]), "none\n");
+
+    // Inside repository with matching profile
+    let repo = env.repo("code/work-app");
+    env.ok(&repo, &["use", "work"]);
+    assert_eq!(env.ok(&repo, &["prompt"]), "work\n");
+    assert_eq!(env.ok(&repo, &["prompt", "--format", "[{profile}]"]), "[work]\n");
+    assert_eq!(
+        env.ok(&repo, &["prompt", "--format", "{name} <{email}>"]),
+        "Work Person <work@acme.example>\n"
+    );
+
+    // Inside repository without matching profile
+    let other = env.repo("code/other-app");
+    env.git(&other, &["config", "user.name", "Ada Lovelace"]);
+    env.git(&other, &["config", "user.email", "other@example.com"]);
+    assert_eq!(env.ok(&other, &["prompt"]), "");
+    assert_eq!(env.ok(&other, &["prompt", "--fallback", "default"]), "default\n");
+    assert_eq!(
+        env.ok(
+            &other,
+            &["prompt", "--format", "[{profile}]", "--fallback", "no-prof"]
+        ),
+        "no-prof\n"
+    );
+    assert_eq!(
+        env.ok(&other, &["prompt", "--format", "{name} <{email}>"]),
+        "Ada Lovelace <other@example.com>\n"
+    );
+    assert_eq!(
+        env.ok(&other, &["prompt", "--format", "{who} {email}"]),
+        "{who} other@example.com\n"
+    );
+}
+
+#[test]
+fn prompt_stays_quiet_when_gitmate_fails() {
+    let env = Env::new();
+    add_work_profile(&env);
+    let repo = env.repo("code/app");
+    let profiles = env.home.join(".config/gitmate/profiles.toml");
+    std::fs::write(&profiles, "not = [toml").unwrap();
+
+    let out = env.run(&repo, &["prompt", "--fallback", "?"]);
+    assert!(!out.status.success());
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "?\n");
+    assert!(out.stderr.is_empty(), "{}", String::from_utf8_lossy(&out.stderr));
+}
+
+#[test]
+fn whoami_short_flag() {
+    let env = Env::new();
+    let plain = env.home.join("plain");
+    std::fs::create_dir_all(&plain).unwrap();
+    add_work_profile(&env);
+
+    // Outside repository
+    let who_plain = env.ok(&plain, &["whoami", "--short"]);
+    assert!(who_plain.contains("not inside a Git repository"), "{who_plain}");
+
+    // Inside repository with matching profile
+    let repo = env.repo("code/work-app");
+    env.ok(&repo, &["use", "work"]);
+    assert_eq!(env.ok(&repo, &["whoami", "--short"]), "work\n");
+    assert_eq!(env.ok(&repo, &["whoami", "-s"]), "work\n");
+
+    // Inside repository without matching profile
+    let other = env.repo("code/other-app");
+    env.git(&other, &["config", "user.name", "Ada Lovelace"]);
+    env.git(&other, &["config", "user.email", "other@example.com"]);
+    assert_eq!(
+        env.ok(&other, &["whoami", "--short"]),
+        "Ada Lovelace <other@example.com>\n"
+    );
 }

@@ -275,6 +275,66 @@ pub fn whoami(paths: &AppPaths, report: &RepoReport, style: Style) {
     findings(&report.findings, style);
 }
 
+pub fn whoami_short(report: &RepoReport) {
+    if report.repository.is_none() {
+        println!("not inside a Git repository");
+        return;
+    }
+    if let Some(profile) = &report.profile {
+        println!("{}", profile.id);
+    } else if let Some(author) = &report.identity.author {
+        println!("{} <{}>", author.name, author.email);
+    } else {
+        println!("(unset)");
+    }
+}
+
+/// One line for a shell prompt: `format` with `{profile}`, `{name}` and
+/// `{email}` filled in. Outside a repository, or when the format uses a value
+/// that is not set, prints `fallback` (or nothing).
+pub fn prompt(report: Option<&RepoReport>, format: &str, fallback: Option<&str>) {
+    let line = report.filter(|r| r.repository.is_some()).and_then(|r| {
+        let author = r.identity.author.as_ref();
+        fill_placeholders(
+            format,
+            &[
+                ("{profile}", r.profile.as_ref().map(|p| p.id.as_str())),
+                ("{name}", author.map(|a| a.name.as_str())),
+                ("{email}", author.map(|a| a.email.as_str())),
+            ],
+        )
+    });
+    if let Some(line) = line.as_deref().or(fallback) {
+        println!("{line}");
+    }
+}
+
+/// Replace placeholders in one pass, so a value is never re-scanned. `None`
+/// when the template uses a placeholder whose value is missing.
+fn fill_placeholders(template: &str, values: &[(&str, Option<&str>)]) -> Option<String> {
+    let mut out = String::new();
+    let mut rest = template;
+    while let Some(start) = rest.find('{') {
+        out.push_str(&rest[..start]);
+        rest = &rest[start..];
+        match values
+            .iter()
+            .find(|(placeholder, _)| rest.starts_with(placeholder))
+        {
+            Some((placeholder, value)) => {
+                out.push_str((*value)?);
+                rest = &rest[placeholder.len()..];
+            }
+            None => {
+                out.push('{');
+                rest = &rest[1..];
+            }
+        }
+    }
+    out.push_str(rest);
+    Some(out)
+}
+
 pub fn findings(list: &[Finding], style: Style) {
     if list.is_empty() {
         return;

@@ -46,6 +46,21 @@ enum Command {
         path: Option<PathBuf>,
         #[arg(long)]
         json: bool,
+        /// One-line summary (profile id or author name and email)
+        #[arg(long, short = 's')]
+        short: bool,
+    },
+    /// Print the active profile for a shell prompt (silent outside repositories)
+    Prompt {
+        /// Directory to inspect (default: current directory)
+        path: Option<PathBuf>,
+        /// Output with {profile}, {name} and {email} filled in
+        #[arg(long, short = 'f', default_value = "{profile}")]
+        format: String,
+        /// Printed instead outside a repository, or when a value the format
+        /// uses is not set
+        #[arg(long)]
+        fallback: Option<String>,
     },
     /// Assign a profile to the current repository (writes .git/config)
     Use {
@@ -213,15 +228,32 @@ fn run(app: &GitMate, command: Command, style: Style) -> CliResult {
     };
     match command {
         Command::Profile(cmd) => profile_command(app, cmd, style),
-        Command::Whoami { path, json } => {
+        Command::Whoami { path, json, short } => {
             let dir = resolve(app, path.as_deref());
             let report = app.inspect(&dir).map_err(|e| fail(e, json))?;
             if json {
                 print_json(&report);
+            } else if short {
+                render::whoami_short(&report);
             } else {
                 render::whoami(app.paths(), &report, style);
             }
             Ok(ExitCode::SUCCESS)
+        }
+        Command::Prompt {
+            path,
+            format,
+            fallback,
+        } => {
+            // A prompt is redrawn constantly; errors only set the exit code.
+            let dir = resolve(app, path.as_deref());
+            let report = app.inspect(&dir);
+            render::prompt(report.as_ref().ok(), &format, fallback.as_deref());
+            Ok(if report.is_ok() {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::FAILURE
+            })
         }
         Command::Use {
             profile,
