@@ -48,7 +48,17 @@ impl Sandbox {
             .prefix("gitmate tëst ")
             .tempdir()
             .expect("create temp dir");
-        let home = root.path().join("home dir");
+        assert!(
+            root.path().starts_with(std::env::temp_dir()),
+            "sandbox HOME must be under the temp dir"
+        );
+        // Git reports paths with symlinks resolved, and macOS reaches its
+        // temp dir through one (/var -> /private/var).
+        #[cfg(unix)]
+        let base = root.path().canonicalize().expect("resolve temp dir");
+        #[cfg(not(unix))]
+        let base = root.path().to_path_buf();
+        let home = base.join("home dir");
         let config_dir = home.join(".config/gitmate");
         let state_dir = home.join(".local/state/gitmate");
         std::fs::create_dir_all(&home).unwrap();
@@ -58,10 +68,6 @@ impl Sandbox {
             Some(home.clone()),
             real_home,
             "sandbox must never use the real HOME"
-        );
-        assert!(
-            home.starts_with(std::env::temp_dir()),
-            "sandbox HOME must be under the temp dir"
         );
 
         let mut git = Git::default()
