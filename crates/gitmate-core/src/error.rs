@@ -89,6 +89,18 @@ pub enum Error {
     #[error("another GitMate process is changing configuration right now; try again")]
     Locked,
 
+    #[error("{} already exists and was not installed by GitMate; use --force to replace it", path.display())]
+    HookConflict { path: PathBuf },
+
+    #[error("{} was not installed by GitMate, so it was left alone", path.display())]
+    HookNotManaged { path: PathBuf },
+
+    #[error(
+        "Git runs hooks from {} (core.hooksPath), so a hook in the repository would never run; call `gitmate hook check` from the pre-commit hook there instead",
+        hooks_path.display()
+    )]
+    HooksPathOverridden { hooks_path: PathBuf },
+
     #[error("applying {op_id} failed and {}: {message}", if *reverted { "the partial change was reverted" } else { "the partial change could NOT be fully reverted (see `gitmate history`)" })]
     ApplyFailed {
         op_id: String,
@@ -137,6 +149,9 @@ impl Error {
             Error::NotUndoable { .. } => "not_undoable",
             Error::OperationNotFound(_) => "operation_not_found",
             Error::Locked => "locked",
+            Error::HookConflict { .. } => "hook_conflict",
+            Error::HookNotManaged { .. } => "hook_not_managed",
+            Error::HooksPathOverridden { .. } => "hooks_path_overridden",
             Error::ApplyFailed { .. } => "apply_failed",
             Error::JournalFailed { .. } => "journal_failed",
             Error::Parse { .. } => "parse_error",

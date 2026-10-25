@@ -36,8 +36,16 @@ impl Env {
     }
 
     fn command(&self, program: &str, dir: &Path) -> Command {
+        // Hooks installed by a test must run the binary under test, not a
+        // `gitmate` installed on this machine.
+        let bin_dir = Path::new(env!("CARGO_BIN_EXE_gitmate")).parent().unwrap();
+        let path = std::env::var_os("PATH").unwrap_or_default();
+        let path =
+            std::env::join_paths(std::iter::once(bin_dir.to_path_buf()).chain(std::env::split_paths(&path)))
+                .unwrap();
         let mut cmd = Command::new(program);
         cmd.current_dir(dir)
+            .env("PATH", path)
             .env("HOME", &self.home)
             .env("XDG_CONFIG_HOME", self.home.join(".config"))
             .env("XDG_STATE_HOME", self.home.join(".local/state"))
@@ -112,7 +120,7 @@ fn help_lists_every_command() {
     let env = Env::new();
     let help = env.ok(&env.home, &["--help"]);
     for cmd in [
-        "profile", "whoami", "use", "rules", "doctor", "history", "undo", "prompt",
+        "profile", "whoami", "use", "rules", "doctor", "history", "undo", "prompt", "hook",
     ] {
         assert!(help.contains(cmd), "missing {cmd} in help:\n{help}");
     }
@@ -461,6 +469,94 @@ fn profile_add_with_signing_key_and_use_sign() {
     assert!(!out.status.success());
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(stdout.contains("no signing key"), "{stdout}");
+}
+
+#[test]
+fn hook_refuses_commits_by_the_wrong_identity() {
+    let env = Env::new();
+    add_work_profile(&env);
+    let repo = env.repo("code/guarded");
+    env.ok(&repo, &["use", "work"]);
+    assert!(env.ok(&repo, &["hook", "status"]).contains("not installed"));
+    let installed = env.ok(&repo, &["hook", "install"]);
+    assert!(installed.contains("Installed the pre-commit hook"), "{installed}");
+    assert!(env.ok(&repo, &["hook", "status"]).contains("GitMate's hook"));
+
+    let commit = |message: &str| {
+        std::fs::write(repo.join(message), message).unwrap();
+        env.git(&repo, &["add", message]);
+        env.command("git", &repo)
+            .args(["commit", "-q", "-m", message])
+            .output()
+            .unwrap()
+    };
+
+    // The expected identity: the hook says nothing.
+    let out = commit("one");
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    assert!(out.stdout.is_empty() && out.stderr.is_empty(), "{out:?}");
+
+    // Someone else: refused, with the reason and the way out.
+    env.git(&repo, &["config", "user.email", "me@home.example"]);
+    let out = commit("two");
+    assert!(!out.status.success());
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("expects profile 'work'"), "{stderr}");
+    assert!(stderr.contains("--no-verify"), "{stderr}");
+    // Git exports the author to hooks as GIT_AUTHOR_*; the reason must still
+    // point at the config file the email comes from.
+    assert!(stderr.contains(".git/config"), "{stderr}");
+    assert!(!stderr.contains("environment variable"), "{stderr}");
+
+    // `git commit --author` reaches the hook too, and is judged as given.
+    let out = env
+        .command("git", &repo)
+        .args([
+            "commit",
+            "-q",
+            "--author",
+            "Work Person <work@acme.example>",
+            "-m",
+            "two",
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    env.git(&repo, &["reset", "-q", "--soft", "HEAD~1"]);
+    assert!(!env.run(&repo, &["hook", "check"]).status.success());
+
+    env.ok(&repo, &["hook", "uninstall"]);
+    assert!(!repo.join(".git/hooks/pre-commit").exists());
+    env.git(&repo, &["commit", "-q", "-m", "two"]);
+}
+
+#[test]
+fn hook_install_leaves_other_hooks_alone() {
+    let env = Env::new();
+    let repo = env.repo("code/linted");
+    let hook = repo.join(".git/hooks/pre-commit");
+    std::fs::write(&hook, "#!/bin/sh\nexec make lint\n").unwrap();
+
+    let out = env.run(&repo, &["hook", "install"]);
+    assert!(!out.status.success());
+    assert!(String::from_utf8_lossy(&out.stderr).contains("--force"));
+    let out = env.run(&repo, &["hook", "uninstall"]);
+    assert!(!out.status.success());
+    assert!(String::from_utf8_lossy(&out.stderr).contains("left alone"));
+    assert_eq!(
+        std::fs::read_to_string(&hook).unwrap(),
+        "#!/bin/sh\nexec make lint\n"
+    );
+
+    env.git(&repo, &["config", "core.hooksPath", ".githooks"]);
+    let out = env.run(&repo, &["hook", "install", "--force"]);
+    assert!(!out.status.success());
+    assert!(String::from_utf8_lossy(&out.stderr).contains("gitmate hook check"));
+    assert!(env.ok(&repo, &["hook", "status"]).contains("core.hooksPath"));
+
+    let plain = env.home.join("plain");
+    std::fs::create_dir_all(&plain).unwrap();
+    assert!(!env.run(&plain, &["hook", "install"]).status.success());
 }
 
 #[test]

@@ -9,6 +9,7 @@ use crate::doctor::{self, DoctorOptions, DoctorReport};
 use crate::error::{Error, FieldError, Result};
 use crate::fsutil::WriterLock;
 use crate::git::{Git, Ident, Scope};
+use crate::hook::{self, HookStatus};
 use crate::identity;
 use crate::includes;
 use crate::journal::OperationRecord;
@@ -17,7 +18,7 @@ use crate::plan::{Action, AssignOptions, ConfigChange, Issue, Plan};
 use crate::profile::{self, Profile, ProfileInput, ProfileStore};
 use crate::remote::{self, Transport};
 use crate::repo::{self, RepoInfo};
-use crate::report::{self, RepoReport, ReportInput};
+use crate::report::{self, Finding, RepoReport, ReportInput};
 use crate::rules::{self, Rule};
 use crate::ssh::{self, KeyStatus};
 use crate::transaction::Transactions;
@@ -900,5 +901,61 @@ impl GitMate {
             ssh_hosts,
             findings,
         })
+    }
+
+    // ----- pre-commit hook ------------------------------------------------
+
+    /// Whether GitMate's pre-commit hook is installed in `dir`'s repository
+    /// and whether Git runs it.
+    pub fn hook_status(&self, dir: &Path) -> Result<HookStatus> {
+        let (dir, repo) = self.require_repo(dir)?;
+        hook::status(&self.git, &dir, &repo)
+    }
+
+    /// Install the pre-commit hook. `force` replaces a hook GitMate did not
+    /// write; nothing is written when `core.hooksPath` points elsewhere.
+    pub fn install_hook(&self, dir: &Path, force: bool) -> Result<HookStatus> {
+        let (dir, repo) = self.require_repo(dir)?;
+        hook::install(&self.git, &dir, &repo, force)
+    }
+
+    /// Remove GitMate's pre-commit hook; any other hook is left alone.
+    pub fn uninstall_hook(&self, dir: &Path) -> Result<HookStatus> {
+        let (dir, repo) = self.require_repo(dir)?;
+        hook::uninstall(&self.git, &dir, &repo)
+    }
+
+    /// Why a commit in `dir`'s repository should be refused: no usable
+    /// identity, or an author who is not the profile GitMate expects (from
+    /// `use`, a rule or a remote pattern). Empty when the commit may proceed.
+    pub fn commit_check(&self, dir: &Path) -> Result<Vec<Finding>> {
+        let (dir, _) = self.require_repo(dir)?;
+        // Git exports the author it computed to hooks as GIT_AUTHOR_*, which
+        // would make every identity look as if it came from the environment.
+        // Judge the configuration without them, unless they name someone else
+        // (`git commit --author`, or variables set in the shell).
+        let mut configured = self.clone();
+        for var in ["GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_AUTHOR_DATE"] {
+            configured.git = configured.git.env_remove(var);
+        }
+        let mut report = configured.inspect(&dir)?;
+        let author = report.identity.author.as_ref();
+        let overridden = [
+            ("GIT_AUTHOR_NAME", author.map(|a| a.name.as_str())),
+            ("GIT_AUTHOR_EMAIL", author.map(|a| a.email.as_str())),
+        ]
+        .into_iter()
+        .any(|(var, configured)| {
+            self.git
+                .effective_env(var)
+                .is_some_and(|exported| exported.to_str() != configured)
+        });
+        if overridden {
+            report = self.inspect(&dir)?;
+        }
+        report
+            .findings
+            .retain(|f| hook::BLOCKING_FINDINGS.contains(&f.code));
+        Ok(report.findings)
     }
 }

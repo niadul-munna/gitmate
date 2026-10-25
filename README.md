@@ -115,9 +115,11 @@ warn when a repository's remote says *work* but its commits say *personal*:
 gitmate profile edit work --remote-pattern github.com:acme/
 ```
 
-Show the active profile in your shell prompt:
+Refuse commits by the wrong identity with a pre-commit hook, and show the
+active profile in your shell prompt:
 
 ```sh
+gitmate hook install                        # in a repository
 PS1='$(gitmate prompt --format "[{profile}] ")'"$PS1"   # bash; silent outside repositories
 ```
 
@@ -159,6 +161,7 @@ gitmate undo <operation>  # a specific one
 | `prompt [path] [--format] [--fallback]` | One line for a shell prompt; `--format` takes `{profile}`, `{name}`, `{email}` |
 | `use <profile> [--repo path] [--ssh] [--sign]` | Assign a profile to a repository |
 | `rules add <dir> <profile>` / `rules list` / `rules remove <dir>` | Folder rules (`includeIf "gitdir:…"`) |
+| `hook install [--force]` / `uninstall` / `status` / `check` | Pre-commit hook that refuses commits by the wrong identity (`check` is what it runs) |
 | `doctor [path] [--ssh-config]` | Diagnostics. `--ssh-config` also runs `ssh -G` for SSH remotes (local only, never connects) |
 | `history` / `undo [operation]` | Changes GitMate made, and safe reversal |
 
@@ -221,6 +224,7 @@ Details: [SECURITY.md](SECURITY.md), [docs/architecture.md](docs/architecture.md
 | `~/.config/gitmate/profiles.toml` | Profiles ([example](examples/profiles.toml)) |
 | `~/.config/gitmate/includes/<id>.gitconfig` | Generated per-profile include files |
 | `~/.local/state/gitmate/` | Operation history, backups, lock |
+| `<repository>/.git/hooks/pre-commit` | Only after `gitmate hook install` |
 
 `XDG_CONFIG_HOME` / `XDG_STATE_HOME` are respected. `GITMATE_CONFIG_DIR` and
 `GITMATE_STATE_DIR` override the locations. See [examples/](examples/) for
@@ -229,10 +233,14 @@ exactly what GitMate writes into Git config files.
 ## Known limitations
 
 * Linux only is verified. macOS and Windows code paths exist but are untested.
-* Remote patterns only inform `whoami` and `doctor`; they never change Git
-  configuration by themselves.
-* The desktop app does not show or edit signing settings or remote patterns
-  yet. Editing a profile there keeps them.
+* The pre-commit hook does nothing where `gitmate` is not on `PATH` (some GUI
+  Git clients use their own), and `git commit --no-verify` skips it. It is
+  per repository; when `core.hooksPath` is set, call `gitmate hook check`
+  from the hook in that directory instead.
+* Remote patterns only inform `whoami`, `doctor` and the hook; they never
+  change Git configuration by themselves.
+* The desktop app does not show or edit signing settings, remote patterns or
+  the hook yet. Editing a profile there keeps them.
 * Rules are `gitdir:` rules only; `onbranch:` and `hasconfig:` includes are
   listed but not managed.
 * New folder rules are written to the global config file Git writes with

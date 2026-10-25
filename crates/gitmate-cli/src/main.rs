@@ -103,6 +103,38 @@ enum Command {
         #[command(flatten)]
         apply: ApplyFlags,
     },
+    /// Refuse commits by the wrong identity with a pre-commit hook
+    #[command(subcommand)]
+    Hook(HookCommand),
+}
+
+#[derive(Subcommand)]
+enum HookCommand {
+    /// Install a pre-commit hook that refuses commits by the wrong identity
+    Install {
+        /// Repository directory (default: current directory)
+        path: Option<PathBuf>,
+        /// Replace a pre-commit hook that GitMate did not install
+        #[arg(long)]
+        force: bool,
+    },
+    /// Remove GitMate's pre-commit hook (any other hook is left alone)
+    Uninstall {
+        /// Repository directory (default: current directory)
+        path: Option<PathBuf>,
+    },
+    /// Show whether the hook is installed and whether Git runs it
+    Status {
+        /// Repository directory (default: current directory)
+        path: Option<PathBuf>,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Check the identity a commit would use; exits 1 if it should be refused
+    Check {
+        /// Repository directory (default: current directory)
+        path: Option<PathBuf>,
+    },
 }
 
 #[derive(Args, Clone, Copy)]
@@ -375,6 +407,53 @@ fn run(app: &GitMate, command: Command, style: Style) -> CliResult {
             let plan = app.plan_undo(&id).map_err(|e| fail(e, false))?;
             apply_plan(app, &plan, apply, style)
         }
+        Command::Hook(cmd) => match cmd {
+            HookCommand::Install { path, force } => {
+                let dir = resolve(app, path.as_deref());
+                let status = app.install_hook(&dir, force).map_err(|e| fail(e, false))?;
+                println!(
+                    "Installed the pre-commit hook at {}.",
+                    app.paths().display(&status.path)
+                );
+                println!(
+                    "Commits here are refused when the author is not the profile GitMate expects; `git commit --no-verify` skips the check once."
+                );
+                Ok(ExitCode::SUCCESS)
+            }
+            HookCommand::Uninstall { path } => {
+                let dir = resolve(app, path.as_deref());
+                let before = app.hook_status(&dir).map_err(|e| fail(e, false))?;
+                let status = app.uninstall_hook(&dir).map_err(|e| fail(e, false))?;
+                if before.installed {
+                    println!(
+                        "Removed the pre-commit hook from {}.",
+                        app.paths().display(&status.path)
+                    );
+                } else {
+                    println!("No pre-commit hook is installed; nothing to remove.");
+                }
+                Ok(ExitCode::SUCCESS)
+            }
+            HookCommand::Status { path, json } => {
+                let dir = resolve(app, path.as_deref());
+                let status = app.hook_status(&dir).map_err(|e| fail(e, json))?;
+                if json {
+                    print_json(&status);
+                } else {
+                    render::hook_status(app.paths(), &status, style);
+                }
+                Ok(ExitCode::SUCCESS)
+            }
+            HookCommand::Check { path } => {
+                let dir = resolve(app, path.as_deref());
+                let refused = app.commit_check(&dir).map_err(|e| fail(e, false))?;
+                if refused.is_empty() {
+                    return Ok(ExitCode::SUCCESS);
+                }
+                render::commit_refused(&refused, style);
+                Ok(ExitCode::FAILURE)
+            }
+        },
     }
 }
 

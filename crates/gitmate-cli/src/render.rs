@@ -4,6 +4,7 @@ use std::io::IsTerminal;
 
 use gitmate_core::doctor::DoctorReport;
 use gitmate_core::git::Origin;
+use gitmate_core::hook::HookStatus;
 use gitmate_core::identity::Source;
 use gitmate_core::journal::{OperationRecord, OperationStatus};
 use gitmate_core::paths::AppPaths;
@@ -333,6 +334,50 @@ fn fill_placeholders(template: &str, values: &[(&str, Option<&str>)]) -> Option<
     }
     out.push_str(rest);
     Some(out)
+}
+
+pub fn hook_status(paths: &AppPaths, status: &HookStatus, style: Style) {
+    let state = match (status.installed, status.managed) {
+        (false, _) => "not installed".to_string(),
+        (true, true) => "GitMate's hook".to_string(),
+        (true, false) => style.warn("a hook GitMate did not install"),
+    };
+    row(
+        style,
+        "Pre-commit",
+        format!("{}  ({state})", paths.display(&status.path)),
+    );
+    if let Some(dir) = &status.hooks_path {
+        row(
+            style,
+            "Hooks path",
+            format!(
+                "{}  {}",
+                paths.display(dir),
+                style.warn("core.hooksPath: Git runs hooks from here, not from the file above")
+            ),
+        );
+    }
+    if !status.installed && status.hooks_path.is_none() {
+        println!("\nInstall it with `gitmate hook install`.");
+    }
+}
+
+/// Why the pre-commit hook refused a commit (on stderr, which Git shows).
+pub fn commit_refused(findings: &[Finding], style: Style) {
+    eprintln!("{} GitMate refused this commit:", style.error("error:"));
+    for f in findings {
+        eprintln!("  {}", f.message);
+        if let Some(hint) = &f.hint {
+            eprintln!("  {}", style.dim(&format!("hint: {hint}")));
+        }
+    }
+    eprintln!(
+        "{}",
+        style.dim(
+            "Skip this check once with `git commit --no-verify`; remove it with `gitmate hook uninstall`."
+        )
+    );
 }
 
 pub fn findings(list: &[Finding], style: Style) {

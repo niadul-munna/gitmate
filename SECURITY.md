@@ -39,8 +39,13 @@ patch versions and credited in the release notes unless you prefer otherwise.
 * **Owned by GitMate:** `profiles.toml`, generated include files (a profile's
   name, email and, if set, `core.sshCommand` and signing settings), the
   operation journal and backups, all created `0600` in `0700` directories.
-* **Never edited:** `~/.ssh/config`, credential helpers, `safe.directory`, or
-  any Git setting outside the list above.
+* **Written only on request, outside Git config:** `hooks/pre-commit` in a
+  repository's git directory (`gitmate hook install`). It is a fixed script
+  that runs `gitmate hook check`, written `0755`, not journaled. GitMate
+  replaces a hook it did not write only with `--force`, never removes one, and
+  writes nothing when `core.hooksPath` sends Git elsewhere.
+* **Never edited:** `~/.ssh/config`, credential helpers, `safe.directory`,
+  `core.hooksPath`, or any Git setting outside the list above.
 * **No network access.** GitMate never connects to GitHub, GitLab or any
   SSH host. `doctor --ssh-config` runs `ssh -G`, which only prints local
   client configuration.
@@ -59,6 +64,7 @@ patch versions and credited in the release notes unless you prefer otherwise.
 | Partial failure | A failed write reverts the keys already changed and records the operation as failed. |
 | Destructive rollback | Undo restores only GitMate's keys, and only if each still holds the value GitMate wrote; otherwise it refuses and lists the conflicts. It also refuses while a later operation that changed the same key is still applied, because equal values cannot show whose write is in effect. Whole-file backups are kept for manual recovery but are never restored automatically. |
 | Git ownership checks | Git's `safe.directory` protection is respected; GitMate reports Git's refusal and never adds exceptions. |
+| A pre-commit hook runs code on every commit | The hook GitMate installs is a constant script with no user-supplied content; it calls `gitmate` from `PATH` and lets the commit through when it is missing, so uninstalling GitMate never blocks commits. GitMate recognises its own hook by a marker line, and `hook check` only reads configuration. |
 | Signing settings in shared files | `user.signingKey` and `gpg.format` are validated (no control characters; known formats only) and written with `git config --file` like every other value. GitMate never runs `gpg` or `ssh-keygen`. |
 | Untrusted desktop webview | The Tauri webview can call only 17 app commands listed in `build.rs` and granted in `capabilities/default.json`, plus the native folder/file picker. No shell, filesystem, opener, HTTP or core window/event APIs are enabled. Inputs are validated in Rust. Changes to Git configuration require a plan token issued by the Rust side, so the webview can approve a computed plan but never submit files or keys to write. Profile commands take form fields only; saving an edited profile regenerates its include file, which takes effect at once in repositories covered by its rules (the form says so). A strict CSP is set. |
 | Secrets in output | Credentials embedded in HTTP(S) remote URLs, and passwords in any other URL, are replaced with `***` before display and flagged; remote patterns are matched against that redacted form. Credential helpers are shown by name only: inline shell helpers (`!…`) and helper arguments are hidden, as are credentials inside `credential.<url>` keys. The `GIT_CONFIG_PARAMETERS` variable is listed by name only; identity values it sets are shown like any other config value. |

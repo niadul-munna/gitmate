@@ -127,6 +127,22 @@ is unset Git passes the committer identity instead. GitMate writes these three
 keys (`use --sign`, or a profile's include file for folder rules), with a `~/`
 path expanded, and never runs the signing programs itself.
 
+## Hooks
+
+Git runs hooks from `$GIT_COMMON_DIR/hooks`, so linked worktrees share the main
+repository's hooks, unless `core.hooksPath` names another directory (relative
+paths are taken from the top of the working tree, `~` is expanded). `git
+rev-parse --git-path hooks` resolves all of this, so GitMate asks it rather
+than reading `core.hooksPath`, and refuses to install a hook Git would not run.
+(Verified: `tests/hook.rs`.)
+
+Git exports the author it computed, including one given with `git commit
+--author`, to the pre-commit hook as `GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL` and
+`GIT_AUTHOR_DATE`. `gitmate hook check` therefore judges the configuration
+without those variables, so a mismatch is traced to the file it comes from,
+and uses them only when they name a different author. `git commit
+--no-verify` skips the hook. (Verified: the CLI hook tests.)
+
 ## HTTPS
 
 Credential helpers store tokens per host (optionally per path with

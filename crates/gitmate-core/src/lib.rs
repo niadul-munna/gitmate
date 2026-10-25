@@ -10,6 +10,7 @@ pub mod doctor;
 pub mod error;
 pub mod fsutil;
 pub mod git;
+pub mod hook;
 pub mod identity;
 pub mod includes;
 pub mod journal;

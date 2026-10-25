@@ -25,7 +25,8 @@ behaviour.
   as a `Plan`: exact file, key, current values, proposed values, conflicts and
   warnings. Front ends render the plan; nothing is written until it is
   applied. (Profile edits are saved directly and regenerate the profile's
-  include file.)
+  include file. The optional pre-commit hook is the one file GitMate writes
+  inside a repository; it is not Git configuration and not journaled.)
 * **Recoverable.** Applying a plan records an operation journal entry and backs
   up affected files. `undo` reverses only GitMate's own changes and refuses
   if those keys were changed by someone else since.
@@ -55,6 +56,7 @@ written to a fresh temporary file in the same directory and renamed into place.
 | `repo` | Repository discovery (worktrees, bare, nested, safe.directory) |
 | `identity` | Effective identity, per-key origins, environment overrides |
 | `remote`, `ssh` | Remote transport classification, remote patterns, SSH key checks, `core.sshCommand` quoting, `ssh -G` |
+| `hook` | The optional pre-commit hook: where Git runs hooks from, installing and removing GitMate's own, which findings refuse a commit |
 | `rules` | Reading and planning `includeIf "gitdir:..."` rules |
 | `plan` | `Plan`, `ConfigChange`, conflicts, warnings |
 | `transaction`, `journal` | Locking, apply with verification, automatic revert on failure, undo |
