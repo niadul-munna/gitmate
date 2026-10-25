@@ -6,6 +6,9 @@ export interface Profile {
   email: string;
   label?: string;
   ssh_key?: string;
+  signing_key?: string;
+  gpg_format?: string;
+  sign_commits?: boolean;
 }
 
 export type KeyStatus =
@@ -155,7 +158,7 @@ export interface RepoReport {
 }
 
 export type Action =
-  | { kind: "assign"; repository: string; profile: string; ssh: boolean }
+  | { kind: "assign"; repository: string; profile: string; ssh: boolean; sign: boolean }
   | { kind: "add_rule"; directory: string; profile: string }
   | { kind: "remove_rule"; directory: string; profile: string | null }
   | { kind: "undo"; operation: string };

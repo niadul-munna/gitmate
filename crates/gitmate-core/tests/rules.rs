@@ -13,6 +13,9 @@ fn profile(id: &str, email: &str) -> Profile {
         email: email.into(),
         label: None,
         ssh_key: None,
+        signing_key: None,
+        gpg_format: None,
+        sign_commits: false,
     }
 }
 

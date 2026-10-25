@@ -12,6 +12,11 @@ name = "Ada Lovelace"
 email = "ada@acme.example"
 label = "Acme (work GitHub)"
 ssh_key = "~/.ssh/id_ed25519_acme"
+# Optional commit signing: folder rules set user.signingKey, gpg.format and,
+# with sign_commits, commit.gpgsign.
+signing_key = "~/.ssh/id_ed25519_acme.pub"
+gpg_format = "ssh"
+sign_commits = true
 
 [[profile]]
 id = "personal"

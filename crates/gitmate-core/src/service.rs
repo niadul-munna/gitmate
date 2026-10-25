@@ -213,15 +213,7 @@ impl GitMate {
     }
 
     pub fn add_profile(&self, profile: Profile) -> Result<ProfileSaved> {
-        let profile = Profile::from_input(
-            &profile.id,
-            ProfileInput {
-                name: profile.name,
-                email: profile.email,
-                label: profile.label,
-                ssh_key: profile.ssh_key,
-            },
-        );
+        let profile = Profile::from_input(&profile.id, profile.to_input());
         let _lock = self.lock()?;
         let mut profiles = self.profiles()?;
         if profiles.iter().any(|p| p.id == profile.id) {
@@ -423,6 +415,40 @@ impl GitMate {
             }
         }
 
+        if options.sign {
+            match profile.signing_key_value(&self.paths.home) {
+                None => conflicts.push(Issue::new(
+                    "no_signing_key",
+                    format!(
+                        "Profile '{}' has no signing key; add one with `gitmate profile edit {} --signing-key <key>`",
+                        profile.id, profile.id
+                    ),
+                )),
+                Some(key) => {
+                    changes.push(ConfigChange {
+                        file: file.clone(),
+                        key: "user.signingKey".into(),
+                        before: current("user.signingKey")?,
+                        after: vec![key],
+                    });
+                    if let Some(format) = &profile.gpg_format {
+                        changes.push(ConfigChange {
+                            file: file.clone(),
+                            key: "gpg.format".into(),
+                            before: current("gpg.format")?,
+                            after: vec![format.clone()],
+                        });
+                    }
+                    changes.push(ConfigChange {
+                        file: file.clone(),
+                        key: "commit.gpgsign".into(),
+                        before: current("commit.gpgsign")?,
+                        after: vec!["true".into()],
+                    });
+                }
+            }
+        }
+
         for change in &changes {
             if change.before.len() > 1 {
                 warnings.push(Issue::new(
@@ -515,6 +541,7 @@ impl GitMate {
                 repository: repo.root().to_path_buf(),
                 profile: profile.id.clone(),
                 ssh: options.ssh,
+                sign: options.sign,
             },
             format!(
                 "Assign profile '{}' to {}",

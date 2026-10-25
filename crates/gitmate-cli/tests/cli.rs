@@ -422,3 +422,43 @@ fn whoami_short_flag() {
         "Ada Lovelace <other@example.com>\n"
     );
 }
+
+#[test]
+fn profile_add_with_signing_key_and_use_sign() {
+    let env = Env::new();
+    env.ok(
+        &env.home,
+        &[
+            "profile",
+            "add",
+            "signed",
+            "--name",
+            "Signed Dev",
+            "--email",
+            "dev@signed.example",
+            "--signing-key",
+            "~/.ssh/id_ed25519.pub",
+            "--gpg-format",
+            "ssh",
+            "--sign-commits",
+        ],
+    );
+
+    let repo = env.repo("code/signed-app");
+    env.ok(&repo, &["use", "signed", "--sign"]);
+
+    let expanded = env.home.join(".ssh/id_ed25519.pub");
+    assert_eq!(
+        env.git(&repo, &["config", "user.signingKey"]),
+        expanded.to_str().unwrap()
+    );
+    assert_eq!(env.git(&repo, &["config", "gpg.format"]), "ssh");
+    assert_eq!(env.git(&repo, &["config", "commit.gpgsign"]), "true");
+
+    // Profile without signing key fails when --sign is used
+    add_work_profile(&env);
+    let out = env.run(&repo, &["use", "work", "--sign"]);
+    assert!(!out.status.success());
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("no signing key"), "{stdout}");
+}

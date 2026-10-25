@@ -99,6 +99,15 @@ gitmate use work
 gitmate use work --ssh
 ```
 
+Sign commits with the profile's key. The profile's folder rules then set
+`user.signingKey`, `gpg.format` and `commit.gpgsign`, and `use --sign` sets
+them for one repository:
+
+```sh
+gitmate profile edit work --signing-key ~/.ssh/id_ed25519_acme.pub --gpg-format ssh --sign-commits
+gitmate use work --sign
+```
+
 Show the active profile in your shell prompt:
 
 ```sh
@@ -135,13 +144,13 @@ gitmate undo <operation>  # a specific one
 
 | Command | Purpose |
 | --- | --- |
-| `profile add <id> --name --email [--label] [--ssh-key]` | Create a profile |
+| `profile add <id> --name --email [--label] [--ssh-key] [--signing-key] [--gpg-format] [--sign-commits]` | Create a profile |
 | `profile list` / `profile show <id>` | List profiles / show one with its rules and repositories |
-| `profile edit <id> [--name] [--email] [--label\|--clear-label] [--ssh-key\|--clear-ssh-key]` | Change a profile; folder rules pick up the change |
+| `profile edit <id> [--name] [--email] [--label\|--clear-label] [--ssh-key\|--clear-ssh-key] [--signing-key\|--clear-signing-key] [--gpg-format\|--clear-gpg-format] [--sign-commits\|--no-sign-commits]` | Change a profile; folder rules pick up the change |
 | `profile remove <id>` | Delete a profile (refused while a rule uses it) |
 | `whoami [path] [--short]` | Effective identity, its source, matching profile, SSH and remotes |
 | `prompt [path] [--format] [--fallback]` | One line for a shell prompt; `--format` takes `{profile}`, `{name}`, `{email}` |
-| `use <profile> [--repo path] [--ssh]` | Assign a profile to a repository |
+| `use <profile> [--repo path] [--ssh] [--sign]` | Assign a profile to a repository |
 | `rules add <dir> <profile>` / `rules list` / `rules remove <dir>` | Folder rules (`includeIf "gitdir:…"`) |
 | `doctor [path] [--ssh-config]` | Diagnostics. `--ssh-config` also runs `ssh -G` for SSH remotes (local only, never connects) |
 | `history` / `undo [operation]` | Changes GitMate made, and safe reversal |
@@ -213,7 +222,8 @@ exactly what GitMate writes into Git config files.
 ## Known limitations
 
 * Linux only is verified. macOS and Windows code paths exist but are untested.
-* Commit signing keys (`user.signingkey`, `gpg.format`) are not managed yet.
+* The desktop app does not show or edit signing settings yet. Editing a
+  profile there keeps them.
 * Rules are `gitdir:` rules only; `onbranch:` and `hasconfig:` includes are
   listed but not managed.
 * New folder rules are written to the global config file Git writes with

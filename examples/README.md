@@ -21,11 +21,18 @@ and keeps the generated include file in sync with the profile:
 [user]
 	name = Ada Lovelace
 	email = ada@acme.example
+	signingKey = /home/ada/.ssh/id_ed25519_acme.pub
 [core]
 	sshCommand = ssh -i '/home/ada/.ssh/id_ed25519_acme' -o IdentitiesOnly=yes
+[gpg]
+	format = ssh
+[commit]
+	gpgsign = true
 ```
 
-(`core.sshCommand` is only present when the profile has an SSH key.)
+(`core.sshCommand` is only present when the profile has an SSH key,
+`user.signingKey` and `gpg.format` when it has signing settings, and
+`commit.gpgsign` with `sign_commits = true`.)
 
 `gitmate use work` in a repository writes to that repository's
 `.git/config`:
@@ -36,11 +43,22 @@ and keeps the generated include file in sync with the profile:
 	email = ada@acme.example
 ```
 
-and with `--ssh` also:
+with `--ssh` also:
 
 ```ini
 [core]
 	sshCommand = ssh -i '/home/ada/.ssh/id_ed25519_acme' -o IdentitiesOnly=yes
+```
+
+and with `--sign` also:
+
+```ini
+[user]
+	signingKey = /home/ada/.ssh/id_ed25519_acme.pub
+[gpg]
+	format = ssh
+[commit]
+	gpgsign = true
 ```
 
 Each of these is shown as a preview first and can be reversed with

@@ -176,11 +176,16 @@ async fn create_profile(state: State<'_, AppState>, profile: NewProfile) -> CmdR
                 .ssh_key
                 .filter(|k| !k.trim().is_empty())
                 .map(PathBuf::from),
+            signing_key: None,
+            gpg_format: None,
+            sign_commits: false,
         })
     })
     .await
 }
 
+/// The fields the profile form edits. Signing settings are not in the form,
+/// so an edit keeps their stored values.
 #[derive(Deserialize)]
 struct EditProfile {
     name: String,
@@ -196,18 +201,17 @@ async fn update_profile(
     profile: EditProfile,
 ) -> CmdResult<ProfileSaved> {
     with_core(&state, move |core| {
-        core.update_profile(
-            &id,
-            ProfileInput {
-                name: profile.name,
-                email: profile.email,
-                label: profile.label,
-                ssh_key: profile
-                    .ssh_key
-                    .filter(|k| !k.trim().is_empty())
-                    .map(PathBuf::from),
-            },
-        )
+        let input = ProfileInput {
+            name: profile.name,
+            email: profile.email,
+            label: profile.label,
+            ssh_key: profile
+                .ssh_key
+                .filter(|k| !k.trim().is_empty())
+                .map(PathBuf::from),
+            ..core.profile(&id)?.to_input()
+        };
+        core.update_profile(&id, input)
     })
     .await
 }
@@ -269,7 +273,7 @@ async fn plan_assign(
 ) -> CmdResult<PlanTicket> {
     let path = untrusted_path(&state, &path)?;
     let plan = with_core(&state, move |core| {
-        core.plan_assign(&path, &profile, AssignOptions { ssh })
+        core.plan_assign(&path, &profile, AssignOptions { ssh, sign: false })
     })
     .await?;
     Ok(ticket(&state, plan))

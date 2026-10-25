@@ -15,6 +15,8 @@ pub enum Action {
         profile: String,
         #[serde(default)]
         ssh: bool,
+        #[serde(default)]
+        sign: bool,
     },
     /// Add an `includeIf "gitdir:<directory>/"` rule.
     AddRule { directory: PathBuf, profile: String },
@@ -31,6 +33,9 @@ pub enum Action {
 pub struct AssignOptions {
     /// Also set the repository's `core.sshCommand` to use the profile's key.
     pub ssh: bool,
+    /// Also configure the repository's signing key and commit signing.
+    #[serde(default)]
+    pub sign: bool,
 }
 
 /// One key in one exact file going from `before` to `after` (all values, in
@@ -156,7 +161,10 @@ impl Plan {
 /// apply time, as a second line of defence behind plan construction.
 pub(crate) fn is_managed_key(key: &str) -> bool {
     let lower = key.to_ascii_lowercase();
-    if matches!(lower.as_str(), "user.name" | "user.email" | "core.sshcommand") {
+    if matches!(
+        lower.as_str(),
+        "user.name" | "user.email" | "core.sshcommand" | "user.signingkey" | "gpg.format" | "commit.gpgsign"
+    ) {
         return true;
     }
     // includeIf.<condition>.path where the condition is a gitdir match.
@@ -202,6 +210,9 @@ mod tests {
     fn managed_keys() {
         assert!(is_managed_key("user.email"));
         assert!(is_managed_key("core.sshCommand"));
+        assert!(is_managed_key("user.signingKey"));
+        assert!(is_managed_key("gpg.format"));
+        assert!(is_managed_key("commit.gpgsign"));
         assert!(is_managed_key("includeIf.gitdir:/home/a b/.path"));
         assert!(is_managed_key("includeIf.gitdir/i:C:/w/.path"));
         assert!(!is_managed_key("core.hooksPath"));

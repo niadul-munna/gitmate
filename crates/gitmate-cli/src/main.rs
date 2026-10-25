@@ -72,6 +72,9 @@ enum Command {
         /// Also pin the profile's SSH key with core.sshCommand for this repository
         #[arg(long)]
         ssh: bool,
+        /// Also configure commit signing (user.signingKey, gpg.format, commit.gpgsign)
+        #[arg(long)]
+        sign: bool,
         #[command(flatten)]
         apply: ApplyFlags,
     },
@@ -130,6 +133,15 @@ enum ProfileCommand {
         /// Path to this identity's SSH private key (only the path is stored)
         #[arg(long, value_name = "PATH")]
         ssh_key: Option<PathBuf>,
+        /// Signing key for user.signingKey: GPG key id or SSH key path
+        #[arg(long, value_name = "KEY")]
+        signing_key: Option<String>,
+        /// Signature format for gpg.format: openpgp, ssh or x509
+        #[arg(long, value_name = "FORMAT")]
+        gpg_format: Option<String>,
+        /// Folder rules for this profile also set commit.gpgsign = true
+        #[arg(long)]
+        sign_commits: bool,
     },
     /// List profiles
     List {
@@ -157,6 +169,18 @@ enum ProfileCommand {
         ssh_key: Option<PathBuf>,
         #[arg(long)]
         clear_ssh_key: bool,
+        #[arg(long, value_name = "KEY", conflicts_with = "clear_signing_key")]
+        signing_key: Option<String>,
+        #[arg(long)]
+        clear_signing_key: bool,
+        #[arg(long, value_name = "FORMAT", conflicts_with = "clear_gpg_format")]
+        gpg_format: Option<String>,
+        #[arg(long)]
+        clear_gpg_format: bool,
+        #[arg(long, conflicts_with = "no_sign_commits")]
+        sign_commits: bool,
+        #[arg(long)]
+        no_sign_commits: bool,
         #[command(flatten)]
         apply: ApplyFlags,
     },
@@ -259,11 +283,12 @@ fn run(app: &GitMate, command: Command, style: Style) -> CliResult {
             profile,
             repo,
             ssh,
+            sign,
             apply,
         } => {
             let dir = resolve(app, repo.as_deref());
             let plan = app
-                .plan_assign(&dir, &profile, AssignOptions { ssh })
+                .plan_assign(&dir, &profile, AssignOptions { ssh, sign })
                 .map_err(|e| fail(e, false))?;
             apply_plan(app, &plan, apply, style)
         }
@@ -351,6 +376,9 @@ fn profile_command(app: &GitMate, cmd: ProfileCommand, style: Style) -> CliResul
             email,
             label,
             ssh_key,
+            signing_key,
+            gpg_format,
+            sign_commits,
         } => {
             let saved = app
                 .add_profile(Profile {
@@ -359,6 +387,9 @@ fn profile_command(app: &GitMate, cmd: ProfileCommand, style: Style) -> CliResul
                     email,
                     label,
                     ssh_key: ssh_key.map(key_path),
+                    signing_key,
+                    gpg_format,
+                    sign_commits,
                 })
                 .map_err(|e| fail(e, false))?;
             println!("Created profile '{}'.", saved.profile.id);
@@ -397,6 +428,12 @@ fn profile_command(app: &GitMate, cmd: ProfileCommand, style: Style) -> CliResul
             clear_label,
             ssh_key,
             clear_ssh_key,
+            signing_key,
+            clear_signing_key,
+            gpg_format,
+            clear_gpg_format,
+            sign_commits,
+            no_sign_commits,
             apply,
         } => {
             let usage = app.profile_usage(&id).map_err(|e| fail(e, false))?;
@@ -414,6 +451,17 @@ fn profile_command(app: &GitMate, cmd: ProfileCommand, style: Style) -> CliResul
                 } else {
                     ssh_key.map(key_path).or_else(|| old.ssh_key.clone())
                 },
+                signing_key: if clear_signing_key {
+                    None
+                } else {
+                    signing_key.or_else(|| old.signing_key.clone())
+                },
+                gpg_format: if clear_gpg_format {
+                    None
+                } else {
+                    gpg_format.or_else(|| old.gpg_format.clone())
+                },
+                sign_commits: (sign_commits || old.sign_commits) && !no_sign_commits,
             };
             let new = Profile::from_input(&id, input.clone());
             render::profile_diff(app.paths(), &old, &new, &usage.rules, style);

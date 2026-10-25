@@ -117,6 +117,16 @@ including `identityfile` entries, without connecting. Note that `ssh` reads
 reasons GitMate runs `ssh -G` only when explicitly asked
 (`gitmate doctor --ssh-config`).
 
+## Commit signing
+
+Per `git-config(1)`: `commit.gpgsign=true` makes Git sign every commit with
+`user.signingKey`, using the program `gpg.format` selects (`openpgp`: gpg,
+`x509`: gpgsm, `ssh`: ssh-keygen). For `ssh` the key is a key file path or a
+`key::` literal; for `openpgp` it is passed to `gpg --local-user`, and when it
+is unset Git passes the committer identity instead. GitMate writes these three
+keys (`use --sign`, or a profile's include file for folder rules), with a `~/`
+path expanded, and never runs the signing programs itself.
+
 ## HTTPS
 
 Credential helpers store tokens per host (optionally per path with

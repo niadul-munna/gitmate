@@ -26,6 +26,15 @@ pub fn expected_entries(profile: &Profile, paths: &AppPaths) -> Result<Vec<(&'st
             ssh::ssh_command_for_key(&paths.expand_tilde(key))?,
         ));
     }
+    if let Some(key) = profile.signing_key_value(&paths.home) {
+        entries.push(("user.signingKey", key));
+    }
+    if let Some(format) = &profile.gpg_format {
+        entries.push(("gpg.format", format.clone()));
+    }
+    if profile.sign_commits {
+        entries.push(("commit.gpgsign", "true".to_string()));
+    }
     Ok(entries)
 }
 
@@ -36,11 +45,15 @@ pub fn is_current(git: &Git, paths: &AppPaths, profile: &Profile) -> Result<bool
         return Ok(false);
     }
     let expected = expected_entries(profile, paths)?;
-    let actual = git.file_list(&file)?;
-    let wanted: Vec<(String, String)> = expected
+    let mut actual = git.file_list(&file)?;
+    let mut wanted: Vec<(String, String)> = expected
         .into_iter()
         .map(|(k, v)| (k.to_ascii_lowercase(), v))
         .collect();
+    // Git groups keys by section (user.signingKey joins [user]), and every
+    // key here is single-valued, so order carries no meaning.
+    actual.sort();
+    wanted.sort();
     Ok(actual == wanted)
 }
 

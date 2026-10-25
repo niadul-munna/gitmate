@@ -15,6 +15,9 @@ fn profile(id: &str, email: &str) -> Profile {
         email: email.into(),
         label: Some("Label".into()),
         ssh_key: None,
+        signing_key: None,
+        gpg_format: None,
+        sign_commits: false,
     }
 }
 
@@ -95,6 +98,9 @@ fn update_and_remove() {
             email: "renamed@acme.example".into(),
             label: None,
             ssh_key: None,
+            signing_key: None,
+            gpg_format: None,
+            sign_commits: false,
         },
     )
     .unwrap();
@@ -196,4 +202,60 @@ fn ssh_key_choices_are_empty_without_an_ssh_directory() {
     let choices = sb.app().ssh_key_choices().unwrap();
     assert!(choices.keys.is_empty());
     assert_eq!(choices.dir, sb.home.join(".ssh"));
+}
+
+#[test]
+fn profiles_with_signing_key_generate_include_entries() {
+    let sb = Sandbox::new();
+    let app = sb.app();
+    app.add_profile(Profile {
+        id: "signed".into(),
+        name: "Signed Dev".into(),
+        email: "dev@signed.example".into(),
+        label: Some("Signed Profile".into()),
+        ssh_key: None,
+        signing_key: Some("~/.ssh/id_ed25519.pub".into()),
+        gpg_format: Some("ssh".into()),
+        sign_commits: true,
+    })
+    .unwrap();
+
+    let include = sb.paths.include_file("signed");
+    let expanded = sb.paths.home.join(".ssh/id_ed25519.pub");
+    assert_eq!(
+        sb.git_in(
+            &sb.home,
+            &["config", "--file", include.to_str().unwrap(), "user.signingKey"]
+        ),
+        expanded.to_str().unwrap()
+    );
+    assert_eq!(
+        sb.git_in(
+            &sb.home,
+            &["config", "--file", include.to_str().unwrap(), "gpg.format"]
+        ),
+        "ssh"
+    );
+    assert_eq!(
+        sb.git_in(
+            &sb.home,
+            &["config", "--file", include.to_str().unwrap(), "commit.gpgsign"]
+        ),
+        "true"
+    );
+}
+
+#[test]
+fn include_file_with_an_ssh_key_and_signing_is_current() {
+    // Git appends user.signingKey to the existing [user] section, so the
+    // file's key order differs from the order the keys were written in.
+    let sb = Sandbox::new();
+    let app = sb.app();
+    let mut p = profile("signed", "dev@signed.example");
+    p.ssh_key = Some(ssh_file(&sb, "id_signed"));
+    p.signing_key = Some("~/.ssh/id_signed.pub".into());
+    p.gpg_format = Some("ssh".into());
+    p.sign_commits = true;
+    let saved = app.add_profile(p).unwrap().profile;
+    assert!(gitmate_core::includes::is_current(&sb.git, &sb.paths, &saved).unwrap());
 }

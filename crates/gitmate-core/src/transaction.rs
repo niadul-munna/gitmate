@@ -381,6 +381,7 @@ mod tests {
                 repository: PathBuf::from("/r"),
                 profile: "work".into(),
                 ssh: false,
+                sign: false,
             },
             "assign".into(),
             vec![ConfigChange {

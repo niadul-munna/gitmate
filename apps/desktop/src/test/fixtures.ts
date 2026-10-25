@@ -121,7 +121,7 @@ export const assignTicket: PlanTicket = {
   token: "tok-123",
   requires_confirmation: true,
   plan: {
-    action: { kind: "assign", repository: `${HOME}/work/api`, profile: "work", ssh: false },
+    action: { kind: "assign", repository: `${HOME}/work/api`, profile: "work", ssh: false, sign: false },
     summary: "Assign profile 'work' to ~/work/api",
     changes: [
       { file: `${HOME}/work/api/.git/config`, key: "user.name", before: [], after: ["Ada Lovelace"] },

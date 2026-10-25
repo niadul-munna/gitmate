@@ -29,6 +29,20 @@ pub struct Profile {
     /// path is stored; the key file is never read.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ssh_key: Option<PathBuf>,
+    /// Optional value for `user.signingKey`: a GPG key id, an SSH key path
+    /// (`~/` is expanded when written) or a `key::` literal. Never read.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signing_key: Option<String>,
+    /// Optional value for `gpg.format`: `openpgp`, `ssh` or `x509`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gpg_format: Option<String>,
+    /// Whether folder rules also set `commit.gpgsign = true`.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub sign_commits: bool,
+}
+
+fn is_false(value: &bool) -> bool {
+    !value
 }
 
 /// Editable fields of a profile.
@@ -40,6 +54,12 @@ pub struct ProfileInput {
     pub label: Option<String>,
     #[serde(default)]
     pub ssh_key: Option<PathBuf>,
+    #[serde(default)]
+    pub signing_key: Option<String>,
+    #[serde(default)]
+    pub gpg_format: Option<String>,
+    #[serde(default)]
+    pub sign_commits: bool,
 }
 
 impl Profile {
@@ -53,7 +73,44 @@ impl Profile {
                 .map(|l| l.trim().to_string())
                 .filter(|l| !l.is_empty()),
             ssh_key: input.ssh_key.filter(|p| !p.as_os_str().is_empty()),
+            signing_key: input
+                .signing_key
+                .map(|k| k.trim().to_string())
+                .filter(|k| !k.is_empty()),
+            gpg_format: input
+                .gpg_format
+                .map(|f| f.trim().to_lowercase())
+                .filter(|f| !f.is_empty()),
+            sign_commits: input.sign_commits,
         }
+    }
+
+    /// The editable fields, to change some and save with
+    /// [`Profile::from_input`]. Starting from this keeps fields a form does
+    /// not show.
+    pub fn to_input(&self) -> ProfileInput {
+        ProfileInput {
+            name: self.name.clone(),
+            email: self.email.clone(),
+            label: self.label.clone(),
+            ssh_key: self.ssh_key.clone(),
+            signing_key: self.signing_key.clone(),
+            gpg_format: self.gpg_format.clone(),
+            sign_commits: self.sign_commits,
+        }
+    }
+
+    /// The value to write to `user.signingKey`: a `~/` path expanded against
+    /// `home`, anything else (a key id or a literal key) as stored.
+    pub fn signing_key_value(&self, home: &Path) -> Option<String> {
+        let key = self.signing_key.as_deref()?;
+        Some(if key.starts_with("~/") {
+            crate::paths::expand_tilde(Path::new(key), home)
+                .to_string_lossy()
+                .into_owned()
+        } else {
+            key.to_string()
+        })
     }
 
     /// Whether `email` belongs to this profile (case-insensitive, as mail
@@ -129,6 +186,27 @@ fn validate_ssh_key(path: &Path) -> Option<String> {
     None
 }
 
+fn validate_signing_key(key: &str) -> Option<String> {
+    if key.trim().is_empty() {
+        return Some("is required".into());
+    }
+    if key.len() > 1024 {
+        return Some("must be at most 1024 characters".into());
+    }
+    if has_control(key) {
+        return Some("must not contain line breaks or control characters".into());
+    }
+    None
+}
+
+fn validate_gpg_format(format: &str) -> Option<String> {
+    let lower = format.to_ascii_lowercase();
+    if !matches!(lower.as_str(), "ssh" | "openpgp" | "x509") {
+        return Some("must be one of: ssh, openpgp, x509".into());
+    }
+    None
+}
+
 /// Validate a profile's fields without touching the filesystem.
 pub fn validate(profile: &Profile) -> Vec<FieldError> {
     let mut errors = Vec::new();
@@ -153,6 +231,14 @@ pub fn validate(profile: &Profile) -> Vec<FieldError> {
         }),
     );
     push("ssh_key", profile.ssh_key.as_deref().and_then(validate_ssh_key));
+    push(
+        "signing_key",
+        profile.signing_key.as_deref().and_then(validate_signing_key),
+    );
+    push(
+        "gpg_format",
+        profile.gpg_format.as_deref().and_then(validate_gpg_format),
+    );
     errors
 }
 
@@ -244,6 +330,9 @@ mod tests {
             email: email.into(),
             label: None,
             ssh_key: None,
+            signing_key: None,
+            gpg_format: None,
+            sign_commits: false,
         }
     }
 
@@ -308,6 +397,50 @@ mod tests {
         assert!(validate(&p).is_empty());
         p.ssh_key = Some(PathBuf::from("/keys/with space/id"));
         assert!(validate(&p).is_empty());
+    }
+
+    #[test]
+    fn rejects_bad_signing_settings() {
+        let mut p = profile("a", "A", "a@b.c");
+        p.gpg_format = Some("pgp".into());
+        assert_eq!(fields(validate(&p)), vec!["gpg_format"]);
+        p.gpg_format = Some("ssh".into());
+        p.signing_key = Some("key\nid".into());
+        assert_eq!(fields(validate(&p)), vec!["signing_key"]);
+        p.signing_key = Some("~/.ssh/id_a.pub".into());
+        assert!(validate(&p).is_empty());
+    }
+
+    #[test]
+    fn signing_key_value_expands_only_home_paths() {
+        let home = Path::new("/home/ada");
+        let mut p = profile("a", "A", "a@b.c");
+        assert_eq!(p.signing_key_value(home), None);
+        p.signing_key = Some("~/.ssh/id_a.pub".into());
+        assert_eq!(
+            p.signing_key_value(home).as_deref(),
+            Some("/home/ada/.ssh/id_a.pub")
+        );
+        p.signing_key = Some("3AA5C34371567BD2".into());
+        assert_eq!(p.signing_key_value(home).as_deref(), Some("3AA5C34371567BD2"));
+        p.signing_key = Some("key::ssh-ed25519 AAAAC3Nza".into());
+        assert_eq!(
+            p.signing_key_value(home).as_deref(),
+            Some("key::ssh-ed25519 AAAAC3Nza")
+        );
+    }
+
+    #[test]
+    fn to_input_keeps_every_field() {
+        let p = Profile {
+            label: Some("Acme".into()),
+            ssh_key: Some(PathBuf::from("~/.ssh/id_acme")),
+            signing_key: Some("~/.ssh/id_acme.pub".into()),
+            gpg_format: Some("ssh".into()),
+            sign_commits: true,
+            ..profile("work", "Ada", "ada@acme.example")
+        };
+        assert_eq!(Profile::from_input(&p.id, p.to_input()), p);
     }
 
     #[test]

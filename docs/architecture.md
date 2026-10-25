@@ -34,7 +34,7 @@ behaviour.
 
 | Path (Linux default) | Content |
 | --- | --- |
-| `$XDG_CONFIG_HOME/gitmate/profiles.toml` | Profiles (name, email, label, optional SSH key *path*) |
+| `$XDG_CONFIG_HOME/gitmate/profiles.toml` | Profiles (name, email, label, optional SSH key *path*, signing settings) |
 | `$XDG_CONFIG_HOME/gitmate/includes/<id>.gitconfig` | Generated include file per profile, written with `git config --file` |
 | `$XDG_STATE_HOME/gitmate/operations/<op>.toml` | Operation journal |
 | `$XDG_STATE_HOME/gitmate/backups/<op>/` | Copies of affected config files (0600) |

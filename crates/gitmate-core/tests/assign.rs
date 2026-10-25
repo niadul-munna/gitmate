@@ -16,6 +16,9 @@ fn profile(id: &str, name: &str, email: &str) -> Profile {
         email: email.into(),
         label: None,
         ssh_key: None,
+        signing_key: None,
+        gpg_format: None,
+        sign_commits: false,
     }
 }
 
@@ -175,7 +178,14 @@ fn ssh_option_pins_the_profile_key_for_the_repository() {
     sb.git_in(&repo, &["remote", "add", "origin", "git@github.com:acme/app.git"]);
 
     let plan = app
-        .plan_assign(&repo, "oss", AssignOptions { ssh: true })
+        .plan_assign(
+            &repo,
+            "oss",
+            AssignOptions {
+                ssh: true,
+                sign: false,
+            },
+        )
         .unwrap();
     let ssh = plan.changes.iter().find(|c| c.key == "core.sshCommand").unwrap();
     let expected = format!(
@@ -205,7 +215,14 @@ fn scenario_8_https_remote_with_ssh_profile_is_warned() {
     );
 
     let plan = app
-        .plan_assign(&repo, "oss", AssignOptions { ssh: true })
+        .plan_assign(
+            &repo,
+            "oss",
+            AssignOptions {
+                ssh: true,
+                sign: false,
+            },
+        )
         .unwrap();
     assert!(
         plan.warnings.iter().any(|w| w.code == "https_remote"),
@@ -235,7 +252,14 @@ fn scenario_7_ssh_option_with_missing_key_is_a_conflict() {
     std::fs::remove_file(&key).unwrap();
 
     let plan = app
-        .plan_assign(&repo, "gone", AssignOptions { ssh: true })
+        .plan_assign(
+            &repo,
+            "gone",
+            AssignOptions {
+                ssh: true,
+                sign: false,
+            },
+        )
         .unwrap();
     assert!(
         plan.conflicts.iter().any(|c| c.code == "ssh_key_unusable"),
@@ -258,7 +282,14 @@ fn ssh_option_without_a_profile_key_is_a_conflict() {
     let (sb, repo) = setup();
     let plan = sb
         .app()
-        .plan_assign(&repo, "work", AssignOptions { ssh: true })
+        .plan_assign(
+            &repo,
+            "work",
+            AssignOptions {
+                ssh: true,
+                sign: false,
+            },
+        )
         .unwrap();
     assert!(plan.conflicts.iter().any(|c| c.code == "no_ssh_key"));
 }
@@ -330,4 +361,52 @@ fn https_remote_warning_names_the_key_relative_to_home() {
         .find(|f| f.code == "https_remote_ssh_profile")
         .expect("warning");
     assert!(finding.message.contains("~/.ssh/id_work"), "{}", finding.message);
+}
+
+#[test]
+fn sign_option_without_a_profile_signing_key_is_a_conflict() {
+    let (sb, repo) = setup();
+    let plan = sb
+        .app()
+        .plan_assign(
+            &repo,
+            "work",
+            AssignOptions {
+                ssh: false,
+                sign: true,
+            },
+        )
+        .unwrap();
+    assert!(plan.conflicts.iter().any(|c| c.code == "no_signing_key"));
+}
+
+#[test]
+fn assign_with_sign_option_pins_signing_keys() {
+    let (sb, repo) = setup();
+    let mut p = profile("signed", "Signed Person", "signed@acme.example");
+    p.signing_key = Some("~/.ssh/id_ed25519.pub".into());
+    p.gpg_format = Some("ssh".into());
+    let app = sb.app();
+    app.add_profile(p).unwrap();
+
+    let plan = app
+        .plan_assign(
+            &repo,
+            "signed",
+            AssignOptions {
+                ssh: false,
+                sign: true,
+            },
+        )
+        .unwrap();
+    assert!(plan.conflicts.is_empty(), "{:?}", plan.conflicts);
+    app.apply(&plan).unwrap();
+
+    let expanded = sb.paths.home.join(".ssh/id_ed25519.pub");
+    assert_eq!(
+        sb.git_in(&repo, &["config", "--local", "user.signingKey"]),
+        expanded.to_str().unwrap()
+    );
+    assert_eq!(sb.git_in(&repo, &["config", "--local", "gpg.format"]), "ssh");
+    assert_eq!(sb.git_in(&repo, &["config", "--local", "commit.gpgsign"]), "true");
 }

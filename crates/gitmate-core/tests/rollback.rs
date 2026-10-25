@@ -24,6 +24,9 @@ fn setup() -> (Sandbox, PathBuf) {
             email: "work@acme.example".into(),
             label: None,
             ssh_key: None,
+            signing_key: None,
+            gpg_format: None,
+            sign_commits: false,
         })
         .unwrap();
     (sb, repo)
@@ -118,6 +121,7 @@ fn scenario_11_partial_failure_reverts_earlier_changes() {
             repository: repo.clone(),
             profile: "work".into(),
             ssh: false,
+            sign: false,
         },
         "two files".into(),
         vec![
@@ -158,6 +162,7 @@ fn apply_refuses_keys_outside_the_managed_set() {
             repository: repo.clone(),
             profile: "work".into(),
             ssh: false,
+            sign: false,
         },
         "sneaky".into(),
         vec![ConfigChange {
@@ -334,6 +339,9 @@ fn undone_later_operations_do_not_block_undo() {
         email: "oss@example.org".into(),
         label: None,
         ssh_key: None,
+        signing_key: None,
+        gpg_format: None,
+        sign_commits: false,
     })
     .unwrap();
     let first = assign(&sb, &repo, "work");
