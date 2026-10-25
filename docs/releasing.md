@@ -62,8 +62,7 @@ Decisions the maintainers make once, before the first public release:
 ## Platform claims
 
 v0.1.0 is verified on Linux only (Pop!_OS 24.04 / Ubuntu 24.04 base,
-Git 2.43, x86_64). CI runs the tests on macOS, but nobody has used GitMate
-there by hand. Windows does not work yet: `std::fs::canonicalize` returns
-`\\?\C:\...` paths, which folder rules reject, and Git's `C:/...` paths are
-compared with Rust's `C:\...` ones. Its CI job is allowed to fail. Advertise
-neither until it has been verified.
+Git 2.43, x86_64). CI runs the core and CLI tests on macOS and Windows, but
+nobody has used GitMate there by hand, the desktop app is only built on
+Linux, and the release workflow only builds a Linux binary. Advertise macOS
+and Windows only once they have been verified by hand.

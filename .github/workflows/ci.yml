@@ -20,9 +20,6 @@ jobs:
   rust:
     name: Core and CLI (${{ matrix.os }})
     runs-on: ${{ matrix.runner }}
-    # Windows does not work yet (see the README's known limitations); its job
-    # reports failures without failing the run.
-    continue-on-error: ${{ matrix.os == 'Windows' }}
     strategy:
       fail-fast: false
       matrix:

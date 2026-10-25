@@ -427,7 +427,12 @@ mod tests {
         assert_eq!(fields(validate(&p)), vec!["ssh_key"]);
         p.ssh_key = Some(PathBuf::from("~/.ssh/id_ed25519"));
         assert!(validate(&p).is_empty());
-        p.ssh_key = Some(PathBuf::from("/keys/with space/id"));
+        let absolute = if cfg!(windows) {
+            "C:/keys/with space/id"
+        } else {
+            "/keys/with space/id"
+        };
+        p.ssh_key = Some(PathBuf::from(absolute));
         assert!(validate(&p).is_empty());
     }
 
@@ -453,8 +458,8 @@ mod tests {
         assert_eq!(p.signing_key_value(home), None);
         p.signing_key = Some("~/.ssh/id_a.pub".into());
         assert_eq!(
-            p.signing_key_value(home).as_deref(),
-            Some("/home/ada/.ssh/id_a.pub")
+            p.signing_key_value(home).map(PathBuf::from),
+            Some(home.join(".ssh/id_a.pub"))
         );
         p.signing_key = Some("3AA5C34371567BD2".into());
         assert_eq!(p.signing_key_value(home).as_deref(), Some("3AA5C34371567BD2"));

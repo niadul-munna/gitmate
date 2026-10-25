@@ -44,7 +44,7 @@ impl Rule {
     /// real path, so two spellings of one directory are the same rule.
     pub fn real_directory(&self) -> Option<PathBuf> {
         let dir = self.directory.as_ref()?;
-        Some(std::fs::canonicalize(dir).unwrap_or_else(|_| dir.clone()))
+        Some(paths::canonicalize(dir).unwrap_or_else(|_| dir.clone()))
     }
 
     /// Whether this rule names `dir` (already resolved), however the rule
@@ -214,7 +214,7 @@ pub fn rule_directory(input: &Path, home: &Path) -> Result<RuleDirectory> {
     if requested.parent().is_none() {
         return Err(invalid("must not be the filesystem root"));
     }
-    match std::fs::canonicalize(&requested) {
+    match paths::canonicalize(&requested) {
         Ok(resolved) if resolved.is_dir() => {
             check(&resolved, &format!("resolves to {}, which ", resolved.display()))?;
             Ok(RuleDirectory {

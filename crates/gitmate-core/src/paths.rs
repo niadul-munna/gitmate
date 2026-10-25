@@ -115,9 +115,39 @@ pub fn expand_tilde(path: &Path, home: &Path) -> PathBuf {
 pub fn contract_tilde(path: &Path, home: &Path) -> String {
     match path.strip_prefix(home) {
         Ok(rest) if rest.as_os_str().is_empty() => "~".to_string(),
-        Ok(rest) => format!("~/{}", rest.display()),
+        // `~/` paths use `/` on every platform, as profiles.toml and Git
+        // config spell them.
+        Ok(rest) => {
+            let parts: Vec<_> = rest.iter().map(|part| part.to_string_lossy()).collect();
+            format!("~/{}", parts.join("/"))
+        }
         Err(_) => path.display().to_string(),
     }
+}
+
+/// [`std::fs::canonicalize`] without the `\\?\` prefix it adds on Windows,
+/// which Git does not understand and whose `?` and `\` are pattern
+/// characters in a `gitdir:` rule.
+pub fn canonicalize(path: &Path) -> std::io::Result<PathBuf> {
+    let real = std::fs::canonicalize(path)?;
+    if cfg!(windows)
+        && let Some(plain) = real.to_str().and_then(without_verbatim_prefix)
+    {
+        return Ok(PathBuf::from(plain));
+    }
+    Ok(real)
+}
+
+/// The everyday spelling of a Windows verbatim path: `\\?\C:\x` is `C:\x`
+/// and `\\?\UNC\server\share` is `\\server\share`. `None` for anything else.
+fn without_verbatim_prefix(path: &str) -> Option<String> {
+    let rest = path.strip_prefix(r"\\?\")?;
+    if let Some(share) = rest.strip_prefix(r"UNC\") {
+        return Some(format!(r"\\{share}"));
+    }
+    let drive = rest.as_bytes();
+    (drive.len() >= 3 && drive[0].is_ascii_alphabetic() && drive[1] == b':' && drive[2] == b'\\')
+        .then(|| rest.to_string())
 }
 
 /// Lexically normalise an absolute path: remove `.` components and resolve
@@ -237,6 +267,38 @@ mod tests {
         );
         assert_eq!(contract_tilde(Path::new("/home/zoëx"), home), "/home/zoëx");
         assert_eq!(contract_tilde(Path::new("/home/zoë"), home), "~");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn contracts_tilde_with_forward_slashes() {
+        let home = Path::new(r"C:\Users\zoë");
+        assert_eq!(
+            contract_tilde(Path::new(r"C:\Users\zoë\.ssh\id"), home),
+            "~/.ssh/id"
+        );
+    }
+
+    #[test]
+    fn drops_the_verbatim_prefix_of_windows_paths() {
+        assert_eq!(
+            without_verbatim_prefix(r"\\?\C:\Users\ada\work").as_deref(),
+            Some(r"C:\Users\ada\work")
+        );
+        assert_eq!(
+            without_verbatim_prefix(r"\\?\UNC\server\share\work").as_deref(),
+            Some(r"\\server\share\work")
+        );
+        assert_eq!(without_verbatim_prefix(r"C:\Users\ada"), None);
+        assert_eq!(without_verbatim_prefix(r"\\?\Volume{0b1c}\work"), None);
+    }
+
+    #[test]
+    fn canonical_paths_have_no_verbatim_prefix() {
+        let dir = tempfile::tempdir().unwrap();
+        let real = canonicalize(dir.path()).unwrap();
+        assert!(real.is_absolute());
+        assert!(!real.to_string_lossy().starts_with(r"\\?\"), "{}", real.display());
     }
 
     #[cfg(unix)]
