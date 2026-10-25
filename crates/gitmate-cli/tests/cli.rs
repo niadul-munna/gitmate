@@ -21,8 +21,6 @@ const STRIPPED: &[&str] = &[
     "GIT_DIR",
     "GIT_WORK_TREE",
     "GIT_SSH_COMMAND",
-    "GITMATE_CONFIG_DIR",
-    "GITMATE_STATE_DIR",
     "NO_COLOR",
 ];
 
@@ -49,6 +47,10 @@ impl Env {
             .env("HOME", &self.home)
             .env("XDG_CONFIG_HOME", self.home.join(".config"))
             .env("XDG_STATE_HOME", self.home.join(".local/state"))
+            // HOME does not move GitMate's folders on macOS (~/Library) or
+            // Windows (%APPDATA%), so name them outright.
+            .env("GITMATE_CONFIG_DIR", self.home.join(".config/gitmate"))
+            .env("GITMATE_STATE_DIR", self.home.join(".local/state/gitmate"))
             .env("GIT_CONFIG_NOSYSTEM", "1")
             .stdin(Stdio::null());
         for var in STRIPPED {
