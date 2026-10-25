@@ -12,7 +12,8 @@ It is a command-line tool and a desktop app built on the same Rust core. No
 account, no cloud service, no network access.
 
 > **Status:** v0.1.0, Linux-first. Verified on Pop!_OS 24.04 (Ubuntu 24.04
-> base), x86_64, Git 2.43. macOS and Windows are not tested yet.
+> base), x86_64, Git 2.43. CI also runs the tests on macOS. Windows does not
+> work yet.
 
 ![GitMate's Overview screen for ~/work/api: commits are authored as Ada Lovelace <ada@acme.example>, set by the work profile through the folder rule for ~/work, with every value Git found listed in read order](docs/screenshots/overview.png)
 
@@ -235,7 +236,9 @@ exactly what GitMate writes into Git config files.
 
 ## Known limitations
 
-* Linux only is verified. macOS and Windows code paths exist but are untested.
+* Linux is verified. On macOS only the automated tests run (in CI). Windows
+  does not work yet: folder rules always fail, and paths are compared and
+  shown inconsistently. CI runs the Windows tests but lets them fail.
 * The pre-commit hook does nothing where `gitmate` is not on `PATH` (some GUI
   Git clients use their own), and `git commit --no-verify` skips it. It is
   per repository; when `core.hooksPath` is set, call `gitmate hook check`
