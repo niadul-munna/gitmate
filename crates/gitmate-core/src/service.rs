@@ -903,6 +903,80 @@ impl GitMate {
         })
     }
 
+    // ----- clone ----------------------------------------------------------
+
+    /// Profiles whose remote patterns match `url` (compared in its redacted
+    /// display form, as diagnostics do).
+    pub fn profiles_for_remote(&self, url: &str) -> Result<Vec<Profile>> {
+        let display = remote::classify_url(url).display;
+        Ok(self
+            .profiles()?
+            .into_iter()
+            .filter(|p| {
+                p.remote_patterns
+                    .iter()
+                    .any(|pattern| remote::matches_remote_pattern(pattern, &display))
+            })
+            .collect())
+    }
+
+    /// Run `git clone <url> <dest>` attached to the terminal; the only
+    /// GitMate operation that reaches the network. With a `profile`, checks
+    /// before cloning that it has the keys `options` ask for, and with
+    /// `options.ssh` the clone itself authenticates with the profile's key
+    /// (`git -c`, not saved; assigning the profile afterwards saves it).
+    pub fn clone_repository(
+        &self,
+        url: &str,
+        dest: &Path,
+        profile: Option<&str>,
+        options: AssignOptions,
+    ) -> Result<()> {
+        if !dest.is_absolute() {
+            return Err(Error::InvalidPath {
+                path: dest.to_path_buf(),
+                reason: "must be an absolute path".into(),
+            });
+        }
+        let mut args: Vec<std::ffi::OsString> = Vec::new();
+        if let Some(id) = profile {
+            let profile = self.profile(id)?;
+            let missing = |field: &'static str, flag: &str| {
+                Error::InvalidProfile(vec![FieldError {
+                    field,
+                    message: format!(
+                        "is not set for profile '{id}'; add one with `gitmate profile edit {id} --{flag} ...`"
+                    ),
+                }])
+            };
+            if options.sign && profile.signing_key.is_none() {
+                return Err(missing("signing_key", "signing-key"));
+            }
+            if options.ssh {
+                let key = profile
+                    .ssh_key
+                    .as_ref()
+                    .ok_or_else(|| missing("ssh_key", "ssh-key"))?;
+                let check = ssh::check_key(key, &self.paths.home);
+                if !check.is_usable() {
+                    return Err(Error::InvalidProfile(vec![FieldError {
+                        field: "ssh_key",
+                        message: check.problem().unwrap_or_default(),
+                    }]));
+                }
+                args.push("-c".into());
+                args.push(format!("core.sshCommand={}", ssh::ssh_command_for_key(&check.path)?).into());
+            }
+        }
+        args.extend([
+            "clone".into(),
+            "--".into(),
+            url.into(),
+            dest.as_os_str().to_owned(),
+        ]);
+        self.git.run_interactive("clone", &args)
+    }
+
     // ----- pre-commit hook ------------------------------------------------
 
     /// Whether GitMate's pre-commit hook is installed in `dir`'s repository

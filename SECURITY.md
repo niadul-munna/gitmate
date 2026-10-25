@@ -46,9 +46,11 @@ patch versions and credited in the release notes unless you prefer otherwise.
   writes nothing when `core.hooksPath` sends Git elsewhere.
 * **Never edited:** `~/.ssh/config`, credential helpers, `safe.directory`,
   `core.hooksPath`, or any Git setting outside the list above.
-* **No network access.** GitMate never connects to GitHub, GitLab or any
-  SSH host. `doctor --ssh-config` runs `ssh -G`, which only prints local
-  client configuration.
+* **No network access, except `gitmate clone`.** That command runs `git clone`
+  attached to your terminal, so Git's own prompts and credential helpers
+  apply. Nothing else connects to GitHub, GitLab or any SSH host.
+  `doctor --ssh-config` runs `ssh -G`, which only prints local client
+  configuration.
 
 ## Threat model and mitigations
 
@@ -67,7 +69,7 @@ patch versions and credited in the release notes unless you prefer otherwise.
 | A pre-commit hook runs code on every commit | The hook GitMate installs is a constant script with no user-supplied content; it calls `gitmate` from `PATH` and lets the commit through when it is missing, so uninstalling GitMate never blocks commits. GitMate recognises its own hook by a marker line, and `hook check` only reads configuration. |
 | Signing settings in shared files | `user.signingKey` and `gpg.format` are validated (no control characters; known formats only) and written with `git config --file` like every other value. GitMate never runs `gpg` or `ssh-keygen`. |
 | Untrusted desktop webview | The Tauri webview can call only 17 app commands listed in `build.rs` and granted in `capabilities/default.json`, plus the native folder/file picker. No shell, filesystem, opener, HTTP or core window/event APIs are enabled. Inputs are validated in Rust. Changes to Git configuration require a plan token issued by the Rust side, so the webview can approve a computed plan but never submit files or keys to write. Profile commands take form fields only; saving an edited profile regenerates its include file, which takes effect at once in repositories covered by its rules (the form says so). A strict CSP is set. |
-| Secrets in output | Credentials embedded in HTTP(S) remote URLs, and passwords in any other URL, are replaced with `***` before display and flagged; remote patterns are matched against that redacted form. Credential helpers are shown by name only: inline shell helpers (`!…`) and helper arguments are hidden, as are credentials inside `credential.<url>` keys. The `GIT_CONFIG_PARAMETERS` variable is listed by name only; identity values it sets are shown like any other config value. |
+| Secrets in output | Credentials embedded in HTTP(S) remote URLs, and passwords in any other URL, are replaced with `***` before display and flagged; remote patterns are matched against that redacted form, and a failed `gitmate clone` is reported without repeating its URL. Credential helpers are shown by name only: inline shell helpers (`!…`) and helper arguments are hidden, as are credentials inside `credential.<url>` keys. The `GIT_CONFIG_PARAMETERS` variable is listed by name only; identity values it sets are shown like any other config value. |
 
 ## Backups
 

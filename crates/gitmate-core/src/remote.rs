@@ -202,6 +202,25 @@ pub fn list_remotes(git: &Git, repo_dir: &Path) -> Result<Vec<Remote>> {
     Ok(remotes)
 }
 
+/// The directory `git clone <url>` creates when none is given: the last path
+/// component without a trailing `/.git`, `.git` or `.bundle` (as Git's
+/// `git_url_basename` does). `None` when that leaves nothing usable.
+pub fn clone_directory_name(url: &str) -> Option<String> {
+    let is_sep = |c: char| std::path::is_separator(c) || c == '/';
+    let url = url.trim_end_matches(|c: char| is_sep(c) || c.is_whitespace());
+    let url = url
+        .strip_suffix("/.git")
+        .map(|u| u.trim_end_matches(is_sep))
+        .unwrap_or(url);
+    let name = url.rsplit(|c: char| is_sep(c) || c == ':').next()?;
+    let name = name
+        .strip_suffix(".git")
+        .or_else(|| name.strip_suffix(".bundle"))
+        .unwrap_or(name);
+    (!name.is_empty() && name != "." && name != ".." && !name.chars().any(char::is_control))
+        .then(|| name.to_string())
+}
+
 /// Whether a remote URL matches a profile's pattern: a case-insensitive
 /// substring, or a whole-URL glob when the pattern contains `*` or `?`.
 pub fn matches_remote_pattern(pattern: &str, url: &str) -> bool {
@@ -270,6 +289,24 @@ mod tests {
             "gitlab.company.com",
             "git@github.com:personal/r.git"
         ));
+    }
+
+    #[test]
+    fn clone_directory_names_follow_git() {
+        for (url, name) in [
+            ("git@github.com:acme/app.git", "app"),
+            ("git@github.com:app.git", "app"),
+            ("https://gitlab.example/team/r.git/", "r"),
+            ("ssh://git@host/srv/repo", "repo"),
+            ("/srv/git/project/.git", "project"),
+            ("../bundles/history.bundle", "history"),
+            ("https://example.com/", "example.com"),
+        ] {
+            assert_eq!(clone_directory_name(url).as_deref(), Some(name), "{url}");
+        }
+        for url in ["", "/", ".git", "host:..", "repo\n.git"] {
+            assert_eq!(clone_directory_name(url), None, "{url:?}");
+        }
     }
 
     #[test]

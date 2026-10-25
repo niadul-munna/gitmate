@@ -98,7 +98,8 @@ impl Git {
         &self.program
     }
 
-    fn command(&self, cwd: Option<&Path>, strip_repo_env: bool) -> Command {
+    /// A Git command with this handle's environment.
+    fn base_command(&self, cwd: Option<&Path>, strip_repo_env: bool) -> Command {
         let mut cmd = Command::new(&self.program);
         if let Some(dir) = cwd {
             cmd.current_dir(dir);
@@ -114,6 +115,12 @@ impl Git {
                 cmd.env_remove(key);
             }
         }
+        cmd
+    }
+
+    /// A Git command whose output GitMate parses: C locale, no prompts.
+    fn command(&self, cwd: Option<&Path>, strip_repo_env: bool) -> Command {
+        let mut cmd = self.base_command(cwd, strip_repo_env);
         cmd.env("LC_ALL", "C")
             .env("LANGUAGE", "C")
             .env("GIT_TERMINAL_PROMPT", "0")
@@ -179,6 +186,34 @@ impl Git {
             Ok(out)
         } else {
             Err(failed(&args, &out))
+        }
+    }
+
+    /// Run Git attached to the user's terminal (progress output, password
+    /// and passphrase prompts), with repository-redirecting variables
+    /// removed. `summary` names the command in errors instead of the
+    /// arguments, which may contain credentials.
+    pub fn run_interactive<I, S>(&self, summary: &str, args: I) -> Result<()>
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<OsStr>,
+    {
+        let status = self
+            .base_command(None, true)
+            .args(args)
+            .status()
+            .map_err(|e| Error::GitNotFound {
+                program: self.program.display().to_string(),
+                message: e.to_string(),
+            })?;
+        if status.success() {
+            Ok(())
+        } else {
+            Err(Error::GitFailed {
+                args: summary.to_string(),
+                code: status.code(),
+                stderr: "see Git's output above".into(),
+            })
         }
     }
 

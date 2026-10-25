@@ -10,6 +10,7 @@ use clap::{Args, Parser, Subcommand};
 use gitmate_core::doctor::DoctorOptions;
 use gitmate_core::plan::{AssignOptions, Plan};
 use gitmate_core::profile::{Profile, ProfileInput};
+use gitmate_core::remote;
 use gitmate_core::report::Severity;
 use gitmate_core::{Error, GitMate};
 
@@ -106,6 +107,25 @@ enum Command {
     /// Refuse commits by the wrong identity with a pre-commit hook
     #[command(subcommand)]
     Hook(HookCommand),
+    /// Clone a repository with `git clone` and assign a profile to it
+    Clone {
+        /// Repository URL or path
+        url: String,
+        /// Directory to clone into (default: named after the repository)
+        dir: Option<PathBuf>,
+        /// Profile to assign (default: the one whose remote patterns match)
+        #[arg(long, short = 'p')]
+        profile: Option<String>,
+        /// Clone with the profile's SSH key and pin it with core.sshCommand
+        #[arg(long)]
+        ssh: bool,
+        /// Also configure commit signing (user.signingKey, gpg.format, commit.gpgsign)
+        #[arg(long)]
+        sign: bool,
+        /// Assign without asking for confirmation (for scripts)
+        #[arg(long, short = 'y')]
+        yes: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -454,6 +474,69 @@ fn run(app: &GitMate, command: Command, style: Style) -> CliResult {
                 Ok(ExitCode::FAILURE)
             }
         },
+        Command::Clone {
+            url,
+            dir,
+            profile,
+            ssh,
+            sign,
+            yes,
+        } => {
+            let usage_error = |message: String| {
+                eprintln!("{} {message}", style.error("error:"));
+                Reported
+            };
+            let dest = match &dir {
+                Some(d) => resolve(app, Some(d)),
+                None => resolve(app, None).join(remote::clone_directory_name(&url).ok_or_else(|| {
+                    usage_error(format!(
+                        "cannot name a directory after {url}; give one after the URL"
+                    ))
+                })?),
+            };
+            // Choose the profile before cloning, so a typo costs nothing.
+            let profile = match profile {
+                Some(id) => Some(app.profile(&id).map_err(|e| fail(e, false))?.id),
+                None => {
+                    let matches = app.profiles_for_remote(&url).map_err(|e| fail(e, false))?;
+                    match &matches[..] {
+                        [] => None,
+                        [one] => {
+                            println!("Profile '{}' matches this remote.", one.id);
+                            Some(one.id.clone())
+                        }
+                        many => {
+                            let ids: Vec<_> = many.iter().map(|p| p.id.as_str()).collect();
+                            return Err(usage_error(format!(
+                                "profiles {} all match this remote; choose one with --profile",
+                                ids.join(", ")
+                            )));
+                        }
+                    }
+                }
+            };
+            if profile.is_none() && (ssh || sign) {
+                return Err(usage_error(
+                    "--ssh and --sign need a profile, and no profile's remote patterns match; pass --profile"
+                        .into(),
+                ));
+            }
+            let options = AssignOptions { ssh, sign };
+            app.clone_repository(&url, &dest, profile.as_deref(), options)
+                .map_err(|e| fail(e, false))?;
+            let Some(profile) = profile else {
+                println!(
+                    "No profile's remote patterns match; assign one with `gitmate use <profile> --repo {}`.",
+                    app.paths().display(&dest)
+                );
+                return Ok(ExitCode::SUCCESS);
+            };
+            println!();
+            let plan = app
+                .plan_assign(&dest, &profile, options)
+                .map_err(|e| fail(e, false))?;
+            apply_plan(app, &plan, ApplyFlags { dry_run: false, yes }, style)
+        }
     }
 }
 

@@ -109,10 +109,12 @@ gitmate use work --sign
 ```
 
 Tell GitMate which remotes belong to a profile. `whoami` and `doctor` then
-warn when a repository's remote says *work* but its commits say *personal*:
+warn when a repository's remote says *work* but its commits say *personal*,
+and `clone` picks the profile for you:
 
 ```sh
 gitmate profile edit work --remote-pattern github.com:acme/
+gitmate clone git@github.com:acme/api.git   # git clone, then assigns 'work'
 ```
 
 Refuse commits by the wrong identity with a pre-commit hook, and show the
@@ -160,6 +162,7 @@ gitmate undo <operation>  # a specific one
 | `whoami [path] [--short]` | Effective identity, its source, matching profile, SSH and remotes |
 | `prompt [path] [--format] [--fallback]` | One line for a shell prompt; `--format` takes `{profile}`, `{name}`, `{email}` |
 | `use <profile> [--repo path] [--ssh] [--sign]` | Assign a profile to a repository |
+| `clone <url> [dir] [--profile] [--ssh] [--sign] [--yes]` | `git clone`, then assign the given profile or the one whose remote patterns match |
 | `rules add <dir> <profile>` / `rules list` / `rules remove <dir>` | Folder rules (`includeIf "gitdir:…"`) |
 | `hook install [--force]` / `uninstall` / `status` / `check` | Pre-commit hook that refuses commits by the wrong identity (`check` is what it runs) |
 | `doctor [path] [--ssh-config]` | Diagnostics. `--ssh-config` also runs `ssh -G` for SSH remotes (local only, never connects) |
@@ -237,8 +240,8 @@ exactly what GitMate writes into Git config files.
   Git clients use their own), and `git commit --no-verify` skips it. It is
   per repository; when `core.hooksPath` is set, call `gitmate hook check`
   from the hook in that directory instead.
-* Remote patterns only inform `whoami`, `doctor` and the hook; they never
-  change Git configuration by themselves.
+* Remote patterns only inform `whoami`, `doctor`, the hook and `clone`; they
+  never change Git configuration by themselves.
 * The desktop app does not show or edit signing settings, remote patterns or
   the hook yet. Editing a profile there keeps them.
 * Rules are `gitdir:` rules only; `onbranch:` and `hasconfig:` includes are

@@ -120,7 +120,7 @@ fn help_lists_every_command() {
     let env = Env::new();
     let help = env.ok(&env.home, &["--help"]);
     for cmd in [
-        "profile", "whoami", "use", "rules", "doctor", "history", "undo", "prompt", "hook",
+        "profile", "whoami", "use", "rules", "doctor", "history", "undo", "prompt", "hook", "clone",
     ] {
         assert!(help.contains(cmd), "missing {cmd} in help:\n{help}");
     }
@@ -590,4 +590,89 @@ fn doctor_reports_remote_profile_mismatch() {
     assert!(stdout.contains("remote_profile_mismatch"), "{stdout}");
     assert!(stdout.contains("matches profile 'work'"), "{stdout}");
     assert!(stdout.contains("gitmate use work"), "{stdout}");
+}
+
+#[test]
+fn clone_assigns_the_chosen_or_matching_profile() {
+    let env = Env::new();
+    add_work_profile(&env);
+    let upstream = env.home.join("srv/acme-app.git");
+    std::fs::create_dir_all(&upstream).unwrap();
+    env.git(&upstream, &["init", "-q", "--bare"]);
+    let url = upstream.to_str().unwrap();
+
+    // An explicit profile: the assignment plan is shown, then applied.
+    let target = env.home.join("cloned");
+    let out = env.ok(
+        &env.home,
+        &["clone", url, target.to_str().unwrap(), "--profile", "work"],
+    );
+    assert!(out.contains("Assign profile 'work'"), "{out}");
+    assert_eq!(env.git(&target, &["config", "user.email"]), "work@acme.example");
+
+    // No profile given: the one whose remote pattern matches, and the
+    // directory is named after the repository.
+    env.ok(
+        &env.home,
+        &["profile", "edit", "work", "--remote-pattern", "acme-app", "--yes"],
+    );
+    let code = env.home.join("code");
+    std::fs::create_dir_all(&code).unwrap();
+    let out = env.ok(&code, &["clone", url]);
+    assert!(out.contains("Profile 'work' matches"), "{out}");
+    assert_eq!(
+        env.git(&code.join("acme-app"), &["config", "user.email"]),
+        "work@acme.example"
+    );
+}
+
+#[test]
+fn clone_refuses_before_cloning_when_the_profile_is_unclear() {
+    let env = Env::new();
+    for (id, email) in [("one", "one@acme.example"), ("two", "two@acme.example")] {
+        env.ok(
+            &env.home,
+            &[
+                "profile",
+                "add",
+                id,
+                "--name",
+                id,
+                "--email",
+                email,
+                "--remote-pattern",
+                "acme",
+            ],
+        );
+    }
+    let upstream = env.home.join("acme.git");
+    std::fs::create_dir_all(&upstream).unwrap();
+    env.git(&upstream, &["init", "-q", "--bare"]);
+    let url = upstream.to_str().unwrap();
+
+    let out = env.run(&env.home, &["clone", url]);
+    assert!(!out.status.success());
+    assert!(String::from_utf8_lossy(&out.stderr).contains("one, two"));
+    let out = env.run(&env.home, &["clone", url, "--profile", "nope"]);
+    assert!(!out.status.success());
+    let out = env.run(&env.home, &["clone", url, "--profile", "one", "--ssh"]);
+    assert!(
+        String::from_utf8_lossy(&out.stderr).contains("ssh_key"),
+        "{out:?}"
+    );
+    assert!(!env.home.join("acme").exists(), "nothing was cloned");
+
+    // Git's own failure is reported without repeating the URL, which may
+    // carry credentials.
+    let out = env.run(
+        &env.home,
+        &[
+            "clone",
+            "https://user:s3cret@127.0.0.1:9/x.git",
+            "--profile",
+            "one",
+        ],
+    );
+    assert!(!out.status.success());
+    assert!(!String::from_utf8_lossy(&out.stderr).contains("s3cret"));
 }

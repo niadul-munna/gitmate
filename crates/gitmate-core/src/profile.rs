@@ -42,7 +42,7 @@ pub struct Profile {
     pub sign_commits: bool,
     /// Remote URLs that belong to this profile: a case-insensitive substring,
     /// or a whole-URL glob when it contains `*` or `?`. Used for diagnostics
-    /// only; never written to Git config.
+    /// and by `clone`; never written to Git config.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub remote_patterns: Vec<String>,
 }
