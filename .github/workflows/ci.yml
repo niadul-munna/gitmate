@@ -18,8 +18,21 @@ env:
 
 jobs:
   rust:
-    name: Core and CLI (Linux)
-    runs-on: ubuntu-24.04
+    name: Core and CLI (${{ matrix.os }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: Linux
+            runner: ubuntu-24.04
+          - os: macOS
+            runner: macos-latest
+          - os: Windows
+            runner: windows-latest
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
@@ -29,10 +42,17 @@ jobs:
       - name: Git version used by the tests
         run: git --version
       - run: cargo fmt --all --check
+        if: matrix.os == 'Linux'
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
       - name: Tests must not touch the runner's real Git config
-        run: test ! -e "$HOME/.config/gitmate" && ! git config --global --get-regexp '^includeif\.' | grep -q gitmate
+        run: |
+          case "${{ matrix.os }}" in
+            Linux) dir="$HOME/.config/gitmate" ;;
+            macOS) dir="$HOME/Library/Application Support/GitMate" ;;
+            Windows) dir="$APPDATA/GitMate" ;;
+          esac
+          test ! -e "$dir" && ! git config --global --get-regexp '^includeif\.' | grep -q gitmate
 
   frontend:
     name: Desktop frontend
